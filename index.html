@@ -431,6 +431,17 @@ select.inp { cursor: pointer; }
 .te-chip button:hover { color: var(--danger); }
 body.dark #te-inner { background: rgba(22,24,40,0.97) !important; }
 
+/* ─── Task-edit overlay animation ────────────────────────────── */
+#te-inner {
+  transform: translateY(56px);
+  opacity: 0;
+  transition: transform 0.32s var(--ease), opacity 0.28s var(--ease);
+}
+#task-edit-overlay.te-open #te-inner {
+  transform: translateY(0);
+  opacity: 1;
+}
+
 /* ─── Main layout ─────────────────────────────────────────────── */
 #main {
   max-width: 960px;
@@ -978,7 +989,7 @@ body.dark #te-inner { background: rgba(22,24,40,0.97) !important; }
 </div>
 
 <!-- Task edit modal -->
-<div id="task-edit-overlay" style="display:none;position:fixed;inset:0;z-index:200;background:rgba(13,15,26,0.48);backdrop-filter:blur(7px);-webkit-backdrop-filter:blur(7px);align-items:flex-end;justify-content:center;padding:0;">
+<div id="task-edit-overlay" style="display:none;position:fixed;inset:0;z-index:210;background:rgba(13,15,26,0.48);backdrop-filter:blur(7px);-webkit-backdrop-filter:blur(7px);align-items:flex-end;justify-content:center;padding:0;">
   <div style="width:100%;max-width:560px;max-height:94dvh;overflow-y:auto;padding:24px 22px 28px;border-radius:20px 20px 0 0;margin:0 auto;background:rgba(255,255,255,0.94);border:1px solid var(--border);box-shadow:0 -8px 40px rgba(0,0,0,0.15);" id="te-inner">
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:18px;">
       <h3 style="font-size:17px;font-weight:700;" id="te-modal-title">일정 추가</h3>
@@ -1241,6 +1252,7 @@ let currentAttendance = {}; // docId → boolean (absent)
 let currentSearchTerm = '';
 let schedEditMode = false;
 let schedPw = null;
+let _teOverlayBgHandler = null; // stored to allow removal
 
 async function loadSchedPw() {
   try {
@@ -1257,7 +1269,7 @@ function toggleSchedEdit() {
     () => {
       schedEditMode = true;
       document.getElementById('sched-edit-toolbar').style.display = 'block';
-      document.getElementById('sched-edit-btn').textContent = '✕ 관리 종료';
+      document.getElementById('sched-edit-btn').innerHTML = '✕ <span class="sched-btn-text">관리 종료</span>';
       if (currentDateKey) loadBroadcastForDate(currentDateKey);
       openTaskEditModal(null, currentDateKey);
     },
@@ -1268,7 +1280,7 @@ function toggleSchedEdit() {
 function exitSchedEdit() {
   schedEditMode = false;
   document.getElementById('sched-edit-toolbar').style.display = 'none';
-  document.getElementById('sched-edit-btn').textContent = '＋ 일정 추가';
+  document.getElementById('sched-edit-btn').innerHTML = '＋ <span class="sched-btn-text">일정 추가</span>';
   if (currentDateKey) loadBroadcastForDate(currentDateKey);
 }
 
@@ -1381,7 +1393,10 @@ function openTaskEditModal(task, dateKey) {
   // Load students into selects
   teLoadStudents().then(students => tePopulateSelects(students));
 
+  // Show overlay with slide-up animation
   overlay.style.display = 'flex';
+  overlay.classList.remove('te-open');
+  requestAnimationFrame(() => requestAnimationFrame(() => overlay.classList.add('te-open')));
 
   // Wire buttons (clone to reset listeners)
   const confirmBtn = document.getElementById('te-confirm-btn');
@@ -1391,7 +1406,19 @@ function openTaskEditModal(task, dateKey) {
   const newCancel = cancelBtn.cloneNode(true);
   cancelBtn.parentNode.replaceChild(newCancel, cancelBtn);
 
-  function closeTeModal() { overlay.style.display = 'none'; }
+  function closeTeModal() {
+    overlay.classList.remove('te-open');
+    overlay.style.display = 'none';
+    if (_teOverlayBgHandler) {
+      overlay.removeEventListener('click', _teOverlayBgHandler);
+      _teOverlayBgHandler = null;
+    }
+  }
+
+  // Background click — remove old handler before adding new one
+  if (_teOverlayBgHandler) overlay.removeEventListener('click', _teOverlayBgHandler);
+  _teOverlayBgHandler = e => { if (e.target === overlay) closeTeModal(); };
+  overlay.addEventListener('click', _teOverlayBgHandler);
 
   newConfirm.addEventListener('click', async () => {
     const chosenDate = document.getElementById('te-date').value;
@@ -1410,7 +1437,6 @@ function openTaskEditModal(task, dateKey) {
     await saveTaskEdit(chosenDate, newTask, isNew);
   });
   newCancel.addEventListener('click', closeTeModal);
-  overlay.addEventListener('click', e => { if (e.target === overlay) closeTeModal(); }, { once: true });
 }
 
 async function saveTaskEdit(dateKey, newTask, isNew) {
@@ -1765,9 +1791,9 @@ function renderSongList(container, items, isDone) {
 
     info.appendChild(title);
     info.appendChild(meta);
-    el.insertBefore(chk, el.firstChild);
-    el.appendChild(btn);
+    el.appendChild(chk);
     el.appendChild(info);
+    el.appendChild(btn);
     frag.appendChild(el);
   });
   container.appendChild(frag);
@@ -1879,10 +1905,17 @@ function showModal(title, desc, onConfirm, requiredPw) {
 
   function close() {
     overlay.classList.add('closing');
-    overlay.addEventListener('animationend', () => {
+    // Fallback timer in case animationend never fires (reduced-motion, etc.)
+    const fallback = setTimeout(() => doHide(), 300);
+    overlay.addEventListener('animationend', e => {
+      if (e.target !== overlay) return; // ignore bubbled child animations
+      clearTimeout(fallback);
+      doHide();
+    }, { once: true });
+    function doHide() {
       overlay.style.display = 'none';
       overlay.classList.remove('closing');
-    }, { once: true });
+    }
     confirmB.removeEventListener('click', handleConfirm);
     cancelB.removeEventListener('click', close);
     pwInput.removeEventListener('keydown', handleKey);
