@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <title>데이터 마이그레이션 도구</title>
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+  <style>
+    body { font-family: monospace; padding: 32px; max-width: 800px; margin: 0 auto; background: #f9f9f9; }
+    h2 { font-family: sans-serif; }
+    pre { background: #1e1e1e; color: #d4d4d4; padding: 20px; border-radius: 12px; overflow-x: auto; font-size: 0.85rem; max-height: 500px; overflow-y: auto; }
+    button { background: #1d1d1f; color: #fff; border: none; padding: 14px 32px; border-radius: 12px; font-size: 1rem; cursor: pointer; margin-right: 12px; }
+    button:disabled { opacity: 0.4; cursor: not-allowed; }
+    .ok { color: #34c759; } .err { color: #ff3b30; } .info { color: #007aff; }
+  </style>
+</head>
+<body>
+  <h2>📦 Firestore 데이터 마이그레이션</h2>
+  <p>아래 버튼을 누르면 방송 일정 데이터 <b>19건</b>을 Firestore에 업로드합니다.</p>
+  <button id="btnRun" onclick="runMigration()">마이그레이션 시작</button>
+  <button onclick="document.getElementById('log').innerHTML=''">로그 지우기</button>
+  <pre id="log">대기 중...</pre>
+
+  <script>
+    const firebaseConfig = {
+      apiKey: "AIzaSyBni9HsSfoY_e9oQkW5HDAwypaEXMXQAOo",
+      authDomain: "gwbs-3ec22.firebaseapp.com",
+      projectId: "gwbs-3ec22",
+      storageBucket: "gwbs-3ec22.firebasestorage.app",
+      messagingSenderId: "589081885767",
+      appId: "1:589081885767:web:c44ad52ac51f5773ec0562"
+    };
+    firebase.initializeApp(firebaseConfig);
+    const db = firebase.firestore();
+
+    // CSV 원본 데이터 (파싱 완료)
+    const RAW_ROWS = [
+      { date: "2026. 3. 16",  period: "5교시",    p3: "오범석",  p2: "김미선, 김미림, 윤단월",    p1: "",                         url: "https://youtu.be/K3AaQkTmbzQ?si=NxzWkU2JAZF-Dr7y\nhttps://www.youtube.com/watch?v=Pwd8Rvz86JA\nhttps://youtu.be/91IXXNXsttM?si=G8SuSYlT52mI3GZ",    notice: "" },
+      { date: "2026. 3. 18",  period: "아침방송",  p3: "안정후",  p2: "김미선, 황소휘",            p1: "지서연, 박시문",            url: "https://www.youtube.com/watch?v=bUOSrIf2D-Q",    notice: "" },
+      { date: "2026. 3. 25",  period: "아침방송",  p3: "방하은",  p2: "김미림",                    p1: "이원혜, 박아리나",          url: "https://youtu.be/pP9TarH0w4c?si=koQiKA1kW8V98VU1\nhttps://youtu.be/PZ2XJ-QjSDo?si=k78mW--d_Ya3sM04",    notice: "" },
+      { date: "2026. 4. 1",   period: "아침방송",  p3: "진성민",  p2: "권희민, 윤단월",            p1: "류운희, 김유진",            url: "https://youtu.be/kT9lzmnpXys?si=Ge6WHuBdBqhSN1kR",    notice: "" },
+      { date: "2026. 4. 8",   period: "아침방송",  p3: "안정후",  p2: "김미선",                    p1: "김원혜, 지서연",            url: "https://www.youtube.com/watch?v=_xKrVxnd8G8",    notice: "" },
+      { date: "2026. 4. 15",  period: "아침방송",  p3: "서경은",  p2: "황소휘, 김미림",            p1: "박시문, 이원혜",            url: "https://youtu.be/u-8QvHgRBPE?si=aOcTV0pKK-htv7G_",    notice: "" },
+      { date: "2026. 4. 22",  period: "아침방송",  p3: "주선미",  p2: "권희민",                    p1: "박아리나, 류운희",          url: "https://www.youtube.com/watch?v=I8Tc-2bhNgk",    notice: "" },
+      { date: "2026. 4. 29",  period: "아침방송",  p3: "방하은",  p2: "윤단월, 김미선",            p1: "김유진, 김원혜",            url: "https://www.youtube.com/watch?v=1w51ld02Vyk",    notice: "" },
+      { date: "2026. 5. 6",   period: "아침방송",  p3: "안정후",  p2: "황소휘",                    p1: "지서연, 박시문",            url: "https://www.youtube.com/watch?v=6ayQ5eYFlto",    notice: "" },
+      { date: "2026. 5. 11",  period: "5교시",     p3: "",        p2: "",                          p1: "",                         url: "https://youtu.be/HKrp_QrdYao?si=-VGYc7SOc6ZPM9xM",    notice: "" },
+      { date: "2026. 5. 13",  period: "아침방송",  p3: "진성민",  p2: "김미림, 권희민",            p1: "이원혜, 박아리나",          url: "[방학 중 생활안전] 07. 도박예방교육(동동이와 송송이의 슬기로운 방학생활)  ♥활동지 하단링크♥",    notice: "7분 영상, 조금 빨리 시작해주세요~" },
+      { date: "2026. 5. 20",  period: "아침방송",  p3: "서경은",  p2: "윤단월",                    p1: "류운희, 김유진",            url: "https://www.youtube.com/watch?v=iKzPQn_Axvs\nhttps://www.youtube.com/watch?v=6OgKBo09Ze8",    notice: "" },
+      { date: "2026. 5. 27",  period: "아침방송",  p3: "방하은",  p2: "김미선, 황소휘",            p1: "김원혜, 지서연",            url: "https://www.youtube.com/watch?v=7FIsY7xC8Yo\nhttps://www.youtube.com/watch?v=FW9MBpiwT-I",    notice: "" },
+      { date: "2026. 6. 10",  period: "아침방송",  p3: "주선미",  p2: "김미림",                    p1: "박시문, 이원혜",            url: "https://www.youtube.com/watch?v=joFjb0GWxwo",    notice: "" },
+      { date: "2026. 6. 10",  period: "5교시",     p3: "오범석",  p2: "",                          p1: "",                         url: "https://www.youtube.com/watch?v=bwNlWeMhCsQ\nhttps://www.youtube.com/watch?si=z5vNRfi6kjdNT6y_&v=fXzthCXdFSM&feature=youtu.be\nhttps://drive.google.com/file/d/1h6g1qTvqYfEykLHLi-Z7_B_1aMRbQOVF/view?usp=sharing",    notice: "아침방송 아님!!!" },
+      { date: "2026. 6. 17",  period: "아침방송",  p3: "안정후",  p2: "권희민, 윤단월",            p1: "박아리나, 류운희",          url: "https://www.youtube.com/watch?v=SkikqtC3rrI",    notice: "" },
+      { date: "2026. 6. 24",  period: "아침방송",  p3: "방하은",  p2: "김미선",                    p1: "김유진, 김원혜",            url: "https://www.youtube.com/watch?v=Q6txMi-40aQ",    notice: "" },
+      { date: "2026. 7. 1",   period: "아침방송",  p3: "서경은",  p2: "황소휘, 김미림",            p1: "지서연, 박시문",            url: "https://www.youtube.com/watch?v=k_OC_vGJsuY",    notice: "" },
+      { date: "2026. 7. 8",   period: "아침방송",  p3: "주선미",  p2: "권희민",                    p1: "이원혜, 박아리나",          url: "https://www.youtube.com/watch?v=z0ot4GzDQQI",    notice: "" },
+      { date: "2026. 7. 15",  period: "아침방송",  p3: "진성민",  p2: "윤단월, 김미선",            p1: "류운희, 김유진",            url: "https://www.youtube.com/watch?v=tGm20Ey0asM",    notice: "" },
+      { date: "2026. 7. 22",  period: "아침방송",  p3: "서경은",  p2: "황소휘, 김미림",            p1: "박시문, 이원혜",            url: "",    notice: "" },
+    ];
+
+    function parseDate(raw) {
+      raw = raw.trim();
+      // "2026. 3. 16" → "2026-03-16"
+      const m1 = raw.match(/(\d{4})\.\s*(\d{1,2})\.\s*(\d{1,2})/);
+      if (m1) return `${m1[1]}-${m1[2].padStart(2,'0')}-${m1[3].padStart(2,'0')}`;
+      // "2026-05-11" 형식은 그대로
+      const m2 = raw.match(/(\d{4})-(\d{2})-(\d{2})/);
+      if (m2) return raw;
+      return null;
+    }
+
+    function formatDisplayDate(dateKey) {
+      const days = ['일','월','화','수','목','금','토'];
+      const d = new Date(dateKey + 'T00:00:00');
+      return `${d.getMonth()+1}월 ${d.getDate()}일 (${days[d.getDay()]})`;
+    }
+
+    function log(msg, cls = '') {
+      const el = document.getElementById('log');
+      const span = cls ? `<span class="${cls}">${msg}</span>` : msg;
+      el.innerHTML += span + '\n';
+      el.scrollTop = el.scrollHeight;
+    }
+
+    async function runMigration() {
+      document.getElementById('btnRun').disabled = true;
+      document.getElementById('log').innerHTML = '';
+      log('마이그레이션 시작...\n', 'info');
+
+      // 날짜별로 그룹핑
+      const grouped = {};
+      RAW_ROWS.forEach(row => {
+        const dateKey = parseDate(row.date);
+        if (!dateKey) { log(`  날짜 파싱 실패: ${row.date}`, 'err'); return; }
+        if (!grouped[dateKey]) {
+          grouped[dateKey] = { date: formatDisplayDate(dateKey), dateValue: dateKey, tasks: [] };
+        }
+        grouped[dateKey].tasks.push({
+          id: 'task_' + dateKey + '_' + row.period.replace(/\s/g,''),
+          period: row.period,
+          p3: row.p3,
+          p2: row.p2,
+          p1: row.p1,
+          rawVideoUrl: row.url,
+          notice: row.notice
+        });
+      });
+
+      const dateKeys = Object.keys(grouped).sort();
+      log(`총 날짜 수: ${dateKeys.length}개`, 'info');
+      log(`총 일정 수: ${RAW_ROWS.length}건\n`, 'info');
+
+      let successCount = 0;
+      let errorCount = 0;
+
+      for (const dateKey of dateKeys) {
+        const docData = grouped[dateKey];
+        try {
+          await db.collection('broadcasts').doc(dateKey).set(docData);
+          log(`  ✅ ${docData.date} (${docData.tasks.length}개 교시) → 업로드 완료`, 'ok');
+          successCount++;
+        } catch(e) {
+          log(`  ❌ ${docData.date} → 오류: ${e.message}`, 'err');
+          errorCount++;
+        }
+      }
+
+      log(`\n완료! 성공 ${successCount}건 / 실패 ${errorCount}건`, errorCount > 0 ? 'err' : 'ok');
+      log('\n마이그레이션이 끝났습니다. 이 페이지는 삭제해도 됩니다.', 'info');
+      document.getElementById('btnRun').disabled = false;
+    }
+  </script>
+</body>
+</html>
