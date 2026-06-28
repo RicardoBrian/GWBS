@@ -979,8 +979,10 @@ body.dark #te-inner { background: rgba(22,24,40,0.97) !important; }
   <div class="card modal-box">
     <h3 class="modal-title" id="modal-title-text">비밀번호 확인</h3>
     <p class="modal-desc" id="modal-desc-text">이 작업을 수행하려면 비밀번호를 입력하세요.</p>
-    <input type="password" class="inp" id="modal-pw-input"
-      placeholder="비밀번호" autocomplete="current-password">
+    <div id="modal-pw-wrap" style="margin-bottom:2px;">
+      <input type="password" class="inp" id="modal-pw-input"
+        placeholder="비밀번호" autocomplete="current-password">
+    </div>
     <div class="modal-actions">
       <button class="btn ghost sm" id="modal-cancel-btn">취소</button>
       <button class="btn accent sm" id="modal-confirm-btn">확인</button>
@@ -996,23 +998,25 @@ body.dark #te-inner { background: rgba(22,24,40,0.97) !important; }
       <button id="te-cancel-btn" style="background:none;border:none;font-size:20px;cursor:pointer;color:var(--text-3);padding:4px;">✕</button>
     </div>
     <div style="display:flex;flex-direction:column;gap:14px;">
-      <div>
-        <label class="lbl">날짜</label>
-        <input type="date" class="inp" id="te-date" style="border-radius:13px;">
-      </div>
-      <div>
-        <label class="lbl">교시</label>
-        <select class="inp" id="te-period" style="border-radius:13px;">
-          <option value="아침방송">아침방송</option>
-          <option value="점심시간">점심시간</option>
-          <option value="1교시">1교시</option>
-          <option value="2교시">2교시</option>
-          <option value="3교시">3교시</option>
-          <option value="4교시">4교시</option>
-          <option value="5교시">5교시</option>
-          <option value="6교시">6교시</option>
-          <option value="7교시">7교시</option>
-        </select>
+      <div style="display:grid;grid-template-columns:1fr auto;gap:10px;align-items:end;">
+        <div>
+          <label class="lbl">날짜</label>
+          <input type="date" class="inp" id="te-date" style="border-radius:13px;">
+        </div>
+        <div>
+          <label class="lbl">교시</label>
+          <select class="inp" id="te-period" style="border-radius:13px;width:auto;">
+            <option value="아침방송">아침방송</option>
+            <option value="점심시간">점심시간</option>
+            <option value="1교시">1교시</option>
+            <option value="2교시">2교시</option>
+            <option value="3교시">3교시</option>
+            <option value="4교시">4교시</option>
+            <option value="5교시">5교시</option>
+            <option value="6교시">6교시</option>
+            <option value="7교시">7교시</option>
+          </select>
+        </div>
       </div>
       <div>
         <label class="lbl">방송부 공지사항</label>
@@ -1469,6 +1473,8 @@ async function saveTaskEdit(dateKey, newTask, isNew) {
 }
 
 async function deleteTask(dateKey, taskId) {
+  // Already authenticated via edit mode — no need to re-enter password
+  const pw = schedEditMode ? null : (schedPw || '9600');
   showModal('일정 삭제', '이 일정을 삭제하시겠습니까?', async () => {
     try {
       const docRef = db.collection('broadcasts').doc(dateKey);
@@ -1481,7 +1487,7 @@ async function deleteTask(dateKey, taskId) {
     } catch(e) {
       showToast('삭제 실패: ' + e.message, 'error');
     }
-  }, schedPw || '9600');
+  }, pw);
 }
 
 async function loadBroadcastDates() {
@@ -1891,6 +1897,7 @@ async function loadManuals() {
 function showModal(title, desc, onConfirm, requiredPw) {
   const overlay  = document.getElementById('modal-overlay');
   const pwInput  = document.getElementById('modal-pw-input');
+  const pwWrap   = document.getElementById('modal-pw-wrap');
   const titleEl  = document.getElementById('modal-title-text');
   const descEl   = document.getElementById('modal-desc-text');
   const confirmB = document.getElementById('modal-confirm-btn');
@@ -1899,9 +1906,11 @@ function showModal(title, desc, onConfirm, requiredPw) {
   titleEl.textContent = title;
   descEl.textContent  = desc;
   pwInput.value = '';
+  // Hide password field when no password is required (e.g. already authenticated)
+  pwWrap.style.display = requiredPw ? '' : 'none';
   overlay.style.display = 'flex';
   overlay.classList.remove('closing');
-  requestAnimationFrame(() => pwInput.focus());
+  requestAnimationFrame(() => requiredPw ? pwInput.focus() : confirmB.focus());
 
   function close() {
     overlay.classList.add('closing');
