@@ -429,6 +429,7 @@ select.inp { cursor: pointer; }
   line-height: 1;
 }
 .te-chip button:hover { color: var(--danger); }
+body.dark #te-inner { background: rgba(22,24,40,0.97) !important; }
 
 /* ─── Main layout ─────────────────────────────────────────────── */
 #main {
@@ -928,12 +929,11 @@ select.inp { cursor: pointer; }
 
 <!-- Task edit modal -->
 <div id="task-edit-overlay" style="display:none;position:fixed;inset:0;z-index:200;background:rgba(13,15,26,0.48);backdrop-filter:blur(7px);-webkit-backdrop-filter:blur(7px);align-items:flex-end;justify-content:center;padding:0;">
-  <div class="card" style="width:100%;max-width:560px;max-height:94dvh;overflow-y:auto;padding:24px 22px 28px;border-bottom-left-radius:0;border-bottom-right-radius:0;margin:0 auto;">
-    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;">
+  <div style="width:100%;max-width:560px;max-height:94dvh;overflow-y:auto;padding:24px 22px 28px;border-radius:20px 20px 0 0;margin:0 auto;background:rgba(255,255,255,0.94);border:1px solid var(--border);box-shadow:0 -8px 40px rgba(0,0,0,0.15);" id="te-inner">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:18px;">
       <h3 style="font-size:17px;font-weight:700;" id="te-modal-title">일정 추가</h3>
       <button id="te-cancel-btn" style="background:none;border:none;font-size:20px;cursor:pointer;color:var(--text-3);padding:4px;">✕</button>
     </div>
-    <p style="font-size:12px;color:var(--text-3);margin-bottom:18px;">담당 학생은 추가 안 하셔도 됩니다.</p>
     <div style="display:flex;flex-direction:column;gap:14px;">
       <div>
         <label class="lbl">날짜</label>
@@ -942,7 +942,6 @@ select.inp { cursor: pointer; }
       <div>
         <label class="lbl">교시</label>
         <select class="inp" id="te-period" style="border-radius:13px;">
-          <option value="아침조회">아침조회</option>
           <option value="아침방송">아침방송</option>
           <option value="점심시간">점심시간</option>
           <option value="1교시">1교시</option>
@@ -964,7 +963,7 @@ select.inp { cursor: pointer; }
         <button type="button" onclick="teAddUrl()" class="btn ghost sm" style="margin-top:8px;font-size:12px;">＋ URL 추가</button>
       </div>
       <div>
-        <label class="lbl">담당 학생</label>
+        <label class="lbl">담당 학생 (선택)</label>
         <div style="display:flex;flex-direction:column;gap:10px;" id="te-students-section">
           <div class="te-grade-row" data-grade="3">
             <div style="font-size:12px;font-weight:600;color:var(--text-3);margin-bottom:4px;">3학년</div>
