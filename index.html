@@ -1,0 +1,858 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1, user-scalable=0">
+  <title>관산중학교 방송부</title>
+
+  <!-- ======================================================
+    🔧 Firebase 설정 방법
+    1. https://console.firebase.google.com 에서 프로젝트 생성
+    2. 프로젝트 설정 > 웹 앱 추가 > Firebase SDK 설정 코드 복사
+    3. 아래 firebaseConfig 객체에 붙여넣기
+    4. Firestore Database 생성 (테스트 모드로 시작)
+    5. 아래 firestore.rules 섹션 참고하여 보안 규칙 설정
+  ====================================================== -->
+
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+
+  <!-- Firebase SDK -->
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+
+  <style>
+    @import url('https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/static/pretendard.css');
+
+    :root {
+      --sf-bg: #f5f5f7;
+      --sf-card: #ffffff;
+      --sf-text: #1d1d1f;
+      --sf-sub: #86868b;
+      --sf-border: #e8e8ed;
+      --sf-absent: #ff3b30;
+      --sf-shadow: rgba(0, 0, 0, 0.04);
+    }
+
+    [data-theme='dark'] {
+      --sf-bg: #000000;
+      --sf-card: #1c1c1e;
+      --sf-text: #f5f5f7;
+      --sf-border: #2c2c2e;
+      --sf-shadow: rgba(0, 0, 0, 0.2);
+    }
+
+    body {
+      font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, sans-serif;
+      background-color: var(--sf-bg);
+      color: var(--sf-text);
+      letter-spacing: -0.022em;
+      line-height: 1.47059;
+      font-size: 17px;
+      transition: background 0.3s;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    .container { max-width: 840px; padding: 0 24px; }
+
+    header {
+      background: rgba(255, 255, 255, 0.72);
+      backdrop-filter: saturate(180%) blur(20px);
+      -webkit-backdrop-filter: saturate(180%) blur(20px);
+      padding: 16px 32px;
+      border-bottom: 1px solid var(--sf-border);
+      display: flex; justify-content: space-between; align-items: center;
+      position: sticky; top: 0; z-index: 1000;
+    }
+    [data-theme='dark'] header { background: rgba(0, 0, 0, 0.7); }
+
+    .logo-group { display: flex; align-items: center; gap: 12px; cursor: pointer; }
+    .logo-group img { height: 26px; width: auto; object-fit: contain; }
+    .logo-group h1 { font-size: 1.05rem; font-weight: 600; margin: 0; color: var(--sf-text); }
+
+    .nav-group { display: flex; gap: 6px; }
+    .nav-link {
+      font-size: 0.88rem; color: var(--sf-text); opacity: 0.65; text-decoration: none;
+      padding: 6px 14px; border-radius: 20px; transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1); cursor: pointer;
+    }
+    .nav-link:hover { opacity: 1; background: rgba(0,0,0,0.04); }
+    [data-theme='dark'] .nav-link:hover { background: rgba(255,255,255,0.06); }
+    .nav-link.active { font-weight: 500; background: var(--sf-text); color: var(--sf-card); opacity: 1; }
+
+    .main-container { padding-top: 40px; padding-bottom: 120px; }
+
+    .card {
+      border: none; border-radius: 22px; background: var(--sf-card);
+      padding: 32px; margin-bottom: 28px; box-shadow: 0 4px 20px var(--sf-shadow);
+    }
+
+    .task-notice-banner {
+      background-color: rgba(255, 149, 0, 0.08); color: #ff9500;
+      padding: 14px 18px; border-radius: 14px; font-weight: 500; font-size: 0.9rem;
+      margin-top: 14px; margin-bottom: 12px; border: 1px solid rgba(255, 149, 0, 0.15);
+    }
+    [data-theme='dark'] .task-notice-banner {
+      background-color: rgba(255, 159, 10, 0.12); color: #ff9f0a; border-color: rgba(255, 159, 10, 0.2);
+    }
+
+    .section-title { font-size: 1.6rem; font-weight: 700; margin-bottom: 24px; letter-spacing: -0.035em; }
+    .sub-section-title { font-size: 0.82rem; font-weight: 600; color: var(--sf-sub); margin-bottom: 12px; letter-spacing: 0.06em; text-transform: uppercase; }
+
+    .form-select, .form-control {
+      border-radius: 14px; padding: 14px 18px; font-size: 0.98rem;
+      border: 1px solid var(--sf-border); background-color: var(--sf-bg); color: var(--sf-text); box-shadow: none;
+    }
+    .form-select:focus, .form-control:focus { box-shadow: none; border-color: var(--sf-sub); background-color: var(--sf-bg); color: var(--sf-text); }
+
+    .period-title { font-size: 1.35rem; font-weight: 600; margin-bottom: 16px; }
+    .attendance-box { background: var(--sf-bg); border-radius: 16px; padding: 22px; margin-bottom: 20px; }
+    .grade-group { margin-bottom: 16px; display: flex; align-items: baseline; flex-wrap: wrap; }
+    .grade-group:last-child { margin-bottom: 0; }
+    .grade-label { min-width: 54px; flex-shrink: 0; }
+
+    .student-tag {
+      display: inline-flex; align-items: center; background: var(--sf-card); padding: 7px 16px;
+      border-radius: 20px; font-size: 0.92rem; cursor: pointer;
+      border: 1px solid var(--sf-border); margin: 0 6px 8px 0;
+      transition: all 0.2s cubic-bezier(0.25, 1, 0.5, 1);
+    }
+    .student-tag:hover { background: var(--sf-bg); transform: translateY(-1px); }
+    .student-tag.is-absent { border-color: var(--sf-absent); color: var(--sf-absent); background: rgba(255, 59, 48, 0.05); font-weight: 500; }
+    .student-tag input { display: none; }
+
+    .video-container { border-radius: 16px; overflow: hidden; margin-top: 12px; margin-bottom: 16px; box-shadow: 0 4px 14px var(--sf-shadow); }
+
+    .song-grid-container { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; }
+    @media (max-width: 768px) { .song-grid-container { grid-template-columns: 1fr; } }
+
+    .song-card {
+      display: flex; align-items: center; gap: 16px; background: var(--sf-card);
+      border: 1px solid var(--sf-border); border-radius: 16px; padding: 16px 20px; margin-bottom: 12px;
+    }
+    .song-main { flex-grow: 1; cursor: pointer; overflow: hidden; }
+    .song-name { font-weight: 600; font-size: 1rem; display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--sf-text); }
+    .song-meta { font-size: 0.82rem; color: var(--sf-sub); margin-top: 2px; display: block; }
+
+    .check-circle {
+      width: 24px; height: 24px; border-radius: 50%; border: 1px solid var(--sf-sub); opacity: 0.4;
+      display: flex; align-items: center; justify-content: center; cursor: pointer; flex-shrink: 0; font-size: 0.7rem;
+    }
+    .check-circle.checked { background: #34c759; border-color: #34c759; color: #fff; opacity: 1; }
+
+    .manual-large-grid { display: grid; grid-template-columns: 1fr; gap: 36px; }
+    .main-topic-card { background: var(--sf-card); border-radius: 24px; padding: 36px; box-shadow: 0 4px 24px var(--sf-shadow); }
+    .main-topic-header { border-bottom: 1px solid var(--sf-border); padding-bottom: 20px; margin-bottom: 24px; }
+    .main-topic-title { font-size: 1.5rem; font-weight: 700; color: var(--sf-text); margin: 0; }
+    .main-topic-desc { font-size: 0.95rem; color: var(--sf-sub); margin-top: 6px; margin-bottom: 0; }
+
+    .sub-topic-container { display: grid; grid-template-columns: repeat(auto-fill, minmax(350px, 1fr)); gap: 20px; }
+    .sub-topic-box { background: var(--sf-bg); border-radius: 16px; padding: 22px; display: flex; flex-direction: column; justify-content: space-between; }
+    .sub-topic-title { font-size: 1.1rem; font-weight: 600; color: var(--sf-text); }
+    .sub-topic-desc { font-size: 0.85rem; color: var(--sf-sub); margin-top: 4px; margin-bottom: 14px; display: block; }
+    .manual-content-text { font-size: 0.92rem; white-space: pre-wrap; line-height: 1.62; color: var(--sf-text); opacity: 0.9; }
+
+    .search-box { display: flex; gap: 8px; background: var(--sf-bg); padding: 6px; border-radius: 14px; border: 1px solid var(--sf-border); }
+    .search-box input { border: none; background: transparent; flex-grow: 1; padding: 8px 12px; font-size: 0.98rem; outline: none; color: var(--sf-text); }
+    .search-box button { border: none; background: var(--sf-text); color: var(--sf-card); padding: 8px 18px; border-radius: 10px; font-weight: 500; font-size: 0.88rem; }
+
+    .admin-panel { display: none; margin-top: 60px; padding-top: 40px; border-top: 1px solid var(--sf-border); }
+    .admin-card { background: var(--sf-card); border-radius: 20px; padding: 28px; margin-bottom: 24px; box-shadow: 0 4px 16px var(--sf-shadow); }
+    .admin-btn { background: var(--sf-text); color: var(--sf-card); border: none; padding: 14px; border-radius: 12px; font-weight: 500; width: 100%; font-size: 0.98rem; }
+    .btn-row-del { background: transparent; color: var(--sf-absent); border: none; padding: 4px 8px; font-size: 0.82rem; text-decoration: none; opacity: 0.7; cursor: pointer; }
+    .btn-row-del:hover { opacity: 1; text-decoration: underline; }
+
+    .loading-overlay {
+      position: fixed; inset: 0; background: var(--sf-bg); z-index: 9999;
+      display: flex; align-items: center; justify-content: center; flex-direction: column; gap: 16px;
+    }
+    .spinner { width: 40px; height: 40px; border: 3px solid var(--sf-border); border-top-color: var(--sf-text); border-radius: 50%; animation: spin 0.8s linear infinite; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    .config-warning {
+      background: #fff3cd; border: 1px solid #ffc107; color: #664d03;
+      border-radius: 16px; padding: 20px 24px; margin-bottom: 24px; font-size: 0.9rem;
+    }
+  </style>
+</head>
+<body>
+
+  <div id="loadingOverlay" class="loading-overlay">
+    <div class="spinner"></div>
+    <div style="font-size:0.9rem; color:var(--sf-sub);">데이터를 불러오는 중...</div>
+  </div>
+
+  <header>
+    <div class="logo-group" onclick="loadInitialData()">
+      <img src="https://i.ibb.co/qY4jmX3L/image.webp" alt="관산중학교 로고" onerror="this.style.display='none'">
+      <h1>관산중학교 방송부</h1>
+    </div>
+    <div class="nav-group">
+      <div class="nav-link active" onclick="showTab(1)">방송 일정</div>
+      <div class="nav-link" onclick="showTab(2); loadRequests();">신청곡 목록</div>
+      <div class="nav-link" onclick="showTab(3); loadManual();">업무 매뉴얼</div>
+    </div>
+  </header>
+
+  <div class="container main-container">
+    <div id="configWarning" class="config-warning" style="display:none;">
+      ⚠️ <strong>Firebase 설정이 필요합니다.</strong><br>
+      index.html 상단의 <code>firebaseConfig</code>에 Firebase 프로젝트 정보를 입력해주세요.
+      <a href="https://console.firebase.google.com" target="_blank">Firebase 콘솔 바로가기 →</a>
+    </div>
+
+    <div class="tab-content">
+      <div class="tab-pane fade show active" id="tab1">
+        <div class="card">
+          <div class="sub-section-title">방송 일정 선택</div>
+          <select id="datePicker" class="form-select mb-4" onchange="updateView()"></select>
+          <div id="taskList"></div>
+        </div>
+
+        <div class="card">
+          <div class="sub-section-title">내 방송 일정 검색</div>
+          <div class="search-box">
+            <input type="text" id="userName" placeholder="이름을 입력하세요" onkeypress="if(event.keyCode==13) searchMySchedule()">
+            <button onclick="searchMySchedule()">검색</button>
+          </div>
+          <div id="searchRes" class="mt-3 small fw-medium"></div>
+        </div>
+      </div>
+
+      <div class="tab-pane fade" id="tab2">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+          <div class="section-title m-0">신청곡 리스트</div>
+          <button class="btn btn-sm btn-outline-secondary fw-normal" onclick="askClearRequests()" style="font-size:0.78rem; border-radius:8px; padding: 4px 10px;">목록 전체 비우기</button>
+        </div>
+        <div class="song-grid-container">
+          <div>
+            <div class="sub-section-title mb-3">재생 대기곡</div>
+            <div id="waitList"></div>
+          </div>
+          <div>
+            <div class="sub-section-title mb-3">재생 완료곡</div>
+            <div id="doneList"></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="tab-pane fade" id="tab3">
+        <div class="section-title">업무 매뉴얼</div>
+        <div id="manualLargeGridContainer" class="manual-large-grid"></div>
+      </div>
+    </div>
+
+    <div style="text-align:center; padding:50px 0;">
+      <span style="font-size:0.78rem; color:var(--sf-sub); cursor:pointer;" onclick="openAdminHub()">⚙️ 시스템 콘솔 제어</span>
+    </div>
+
+    <div id="adminArea" class="admin-panel">
+      <div class="admin-card">
+        <div class="sub-section-title">통합 방송 일정 관리</div>
+        <h5 class="fw-bold mb-3" id="scheduleFormTitle">새 방송 일정 등록 / 기존 일정 수정</h5>
+
+        <div class="mb-3">
+          <label class="form-label small fw-bold text-secondary">수정 대상을 선택하거나 새 날짜를 입력하세요</label>
+          <select id="adminScheduleSelector" class="form-select mb-2" onchange="loadSelectedScheduleToForm()">
+            <option value="NEW">--- 새로운 일정 직접 입력하기 ---</option>
+          </select>
+          <input type="date" id="newDate" class="form-control">
+        </div>
+
+        <div class="row g-2 mb-2">
+          <div class="col-8">
+            <select id="newPeriod" class="form-select">
+              <option value="아침방송">아침방송</option>
+              <option value="점심시간">점심시간</option>
+              <option value="1교시">1교시</option>
+              <option value="2교시">2교시</option>
+              <option value="3교시">3교시</option>
+              <option value="4교시">4교시</option>
+              <option value="5교시">5교시</option>
+              <option value="6교시">6교시</option>
+              <option value="7교시">7교시</option>
+            </select>
+          </div>
+          <div class="col-4">
+            <button class="btn btn-outline-danger w-100 btn-sm h-100" id="btnDeleteSchedule" onclick="deleteScheduleForm()" style="display:none; border-radius:14px;">일정 삭제</button>
+          </div>
+        </div>
+
+        <input type="text" id="newP3" class="form-control mb-2" placeholder="3학년 담당자 명단 (쉼표 구분)">
+        <input type="text" id="newP2" class="form-control mb-2" placeholder="2학년 담당자 명단 (쉼표 구분)">
+        <input type="text" id="newP1" class="form-control mb-2" placeholder="1학년 담당자 명단 (쉼표 구분)">
+        <textarea id="newUrl" class="form-control mb-2" placeholder="유튜브 링크 또는 구글 드라이브 링크 (엔터로 여러 개 입력 가능)" rows="3"></textarea>
+        <input type="text" id="newNotice" class="form-control mb-3" placeholder="공지사항 입력 (영상 위에 노출)">
+
+        <div class="d-flex gap-2">
+          <button class="admin-btn" style="flex:1" onclick="submitScheduleForm()">데이터 저장하기</button>
+          <button class="admin-btn bg-secondary" style="flex:1; display:none;" id="btnResetScheduleForm" onclick="resetScheduleForm()">취소</button>
+        </div>
+      </div>
+
+      <div class="admin-card">
+        <div class="sub-section-title">업무 매뉴얼 편집 구성</div>
+        <h5 class="fw-bold mb-3" id="manualFormTitle">매뉴얼 작성 및 편집</h5>
+        <input type="hidden" id="editManualDocId" value="">
+        <input type="text" id="manMain" class="form-control mb-2" placeholder="대주제 제목 (예: 방송 장비 운용)">
+        <input type="text" id="manDesc" class="form-control mb-2" placeholder="대주제 요약 설명 (없으면 공란)">
+        <input type="text" id="manSub" class="form-control mb-2" placeholder="소주제 제목 (예: 마이크 믹서 조절)">
+        <textarea id="manContent" class="form-control mb-3" placeholder="상세 행동 지침 내용 기입" rows="4"></textarea>
+        <div class="d-flex gap-2">
+          <button class="admin-btn" style="flex:2" id="btnSubmitManual" onclick="addManualEntry()">매뉴얼 신규 등록</button>
+          <button class="admin-btn bg-secondary" style="flex:1; display:none;" id="btnUpdateManual" onclick="clearManualForm()">수정 취소</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // ============================================================
+    // 🔧 Firebase 설정 - 여기에 본인 프로젝트 정보를 입력하세요
+    // ============================================================
+    const firebaseConfig = {
+      apiKey: "YOUR_API_KEY",
+      authDomain: "YOUR_PROJECT_ID.firebaseapp.com",
+      projectId: "YOUR_PROJECT_ID",
+      storageBucket: "YOUR_PROJECT_ID.appspot.com",
+      messagingSenderId: "YOUR_SENDER_ID",
+      appId: "YOUR_APP_ID"
+    };
+    // ============================================================
+
+    // Firebase 초기화
+    let db;
+    try {
+      if (firebaseConfig.apiKey === "YOUR_API_KEY") {
+        document.getElementById('configWarning').style.display = 'block';
+        document.getElementById('loadingOverlay').style.display = 'none';
+        throw new Error("Firebase 설정 필요");
+      }
+      firebase.initializeApp(firebaseConfig);
+      db = firebase.firestore();
+    } catch(e) {
+      if (e.message !== "Firebase 설정 필요") console.error("Firebase 초기화 오류:", e);
+    }
+
+    // ============================================================
+    // 앱 상태
+    // ============================================================
+    let bData = [];
+    let currentPw = "";
+    let rawManualList = [];
+    let absenceMap = {};
+    let editTargetDateKey = null;
+    let editTargetTaskId = null;
+
+    // ============================================================
+    // 미디어 URL 파싱 (클라이언트 측)
+    // ============================================================
+    function parseMediaUrls(rawUrls) {
+      return String(rawUrls || "").split('\n').filter(u => u.trim() !== "").map(url => {
+        url = url.trim();
+        if (url.includes('youtube.com') || url.includes('youtu.be')) {
+          let vid = url.includes('v=') ? url.split('v=')[1].split('&')[0]
+            : url.includes('youtu.be/') ? url.split('youtu.be/')[1].split('?')[0]
+            : url.includes('shorts/') ? url.split('shorts/')[1].split('?')[0]
+            : url.split('/').pop().split('?')[0];
+          return { type: 'youtube', id: vid, url };
+        } else if (url.includes('drive.google.com') || url.includes('docs.google.com')) {
+          let id = url.includes('/d/') ? url.split('/d/')[1].split('/')[0]
+            : url.includes('id=') ? url.split('id=')[1].split('&')[0]
+            : url.split('/').pop().split('?')[0];
+          let isAudio = /\.(mp3|wav|m4a)/i.test(url) || url.toLowerCase().includes('audio');
+          return { type: isAudio ? 'drive_audio' : 'drive_video', id, url };
+        } else {
+          let isAudio = /\.(mp3|wav|m4a)/i.test(url) || url.toLowerCase().includes('audio');
+          return { type: isAudio ? 'direct_audio' : 'direct_video', url };
+        }
+      });
+    }
+
+    function enrichTask(task, dateKey) {
+      const splitNames = (val) => String(val || "").split(',').map(n => n.trim()).filter(n => n !== "").map(name => ({
+        name,
+        isAbsent: !!absenceMap[`${dateKey}_${task.period}_${name}`]
+      }));
+      return {
+        ...task,
+        p3_list: splitNames(task.p3),
+        p2_list: splitNames(task.p2),
+        p1_list: splitNames(task.p1),
+        videos: parseMediaUrls(task.rawVideoUrl)
+      };
+    }
+
+    // ============================================================
+    // 데이터 로드
+    // ============================================================
+    async function loadInitialData() {
+      if (!db) return;
+      document.getElementById('loadingOverlay').style.display = 'flex';
+      try {
+        // 출석 데이터 로드
+        const attendanceSnap = await db.collection('attendance').get();
+        absenceMap = {};
+        attendanceSnap.forEach(doc => { absenceMap[doc.id] = true; });
+
+        // 방송 일정 로드
+        const snap = await db.collection('broadcasts').orderBy('dateValue').get();
+        bData = snap.docs.map(doc => {
+          const d = doc.data();
+          return { ...d, tasks: (d.tasks || []).map(t => enrichTask(t, d.dateValue)) };
+        });
+
+        populateDatePicker();
+        updateView();
+      } catch(e) {
+        console.error("데이터 로드 오류:", e);
+        alert("데이터를 불러오는 데 실패했습니다. Firebase 설정을 확인하세요.");
+      } finally {
+        document.getElementById('loadingOverlay').style.display = 'none';
+      }
+    }
+
+    function populateDatePicker() {
+      const picker = document.getElementById('datePicker');
+      const adminSelector = document.getElementById('adminScheduleSelector');
+      picker.innerHTML = '<option value="">방송 날짜를 선택하십시오</option>';
+      adminSelector.innerHTML = '<option value="NEW">--- 새로운 일정 직접 입력하기 ---</option>';
+      bData.forEach((item, i) => {
+        picker.innerHTML += `<option value="${i}">${item.date}</option>`;
+        item.tasks.forEach(task => {
+          adminSelector.innerHTML += `<option value="${i}|${task.id}">[${item.date}] ${task.period}</option>`;
+        });
+      });
+    }
+
+    // ============================================================
+    // 탭 전환
+    // ============================================================
+    function showTab(tabNum) {
+      document.querySelectorAll('.tab-pane').forEach(p => p.classList.remove('show', 'active'));
+      document.getElementById('tab' + tabNum).classList.add('show', 'active');
+      document.querySelectorAll('.nav-link').forEach((l, i) => l.classList.toggle('active', i + 1 === tabNum));
+    }
+
+    // ============================================================
+    // 방송 일정 뷰
+    // ============================================================
+    function updateView() {
+      const idx = document.getElementById('datePicker').value;
+      const tList = document.getElementById('taskList');
+      if (!idx) { tList.innerHTML = ""; return; }
+
+      const selectedDay = bData[idx];
+      tList.innerHTML = "";
+
+      selectedDay.tasks.forEach(task => {
+        let html = `<div class="mb-4">
+          <div class="period-title">${task.period}</div>
+          <div class="attendance-box">
+            ${renderGradeGroup('3학년', task.p3_list, selectedDay.dateValue, task.period)}
+            ${renderGradeGroup('2학년', task.p2_list, selectedDay.dateValue, task.period)}
+            ${renderGradeGroup('1학년', task.p1_list, selectedDay.dateValue, task.period)}
+          </div>`;
+
+        if (task.notice) {
+          html += `<div class="task-notice-banner">⚠️ <b>공지사항:</b> ${task.notice}</div>`;
+        }
+
+        task.videos.forEach(v => {
+          if (v.type === 'youtube') {
+            html += `<div class="video-container"><iframe width="100%" height="320" src="https://www.youtube.com/embed/${v.id}" frameborder="0" allowfullscreen></iframe></div>`;
+          } else if (v.type === 'drive_audio') {
+            html += `<div class="mt-2 mb-3 px-3 py-2" style="background:var(--sf-card);border:1px solid var(--sf-border);border-radius:14px;">
+              <div class="small text-secondary mb-2 fw-bold">🎵 구글 드라이브 오디오 재생</div>
+              <iframe src="https://drive.google.com/file/d/${v.id}/preview" width="100%" height="80" frameborder="0" allow="autoplay" style="border-radius:8px;display:block;"></iframe>
+            </div>`;
+          } else if (v.type === 'drive_video') {
+            html += `<div class="video-container"><iframe width="100%" height="320" src="https://drive.google.com/file/d/${v.id}/preview" frameborder="0" allowfullscreen></iframe></div>`;
+          } else if (v.type === 'direct_audio') {
+            html += `<div class="mt-2 mb-3 px-3 py-2" style="background:var(--sf-card);border:1px solid var(--sf-border);border-radius:14px;">
+              <div class="small text-secondary mb-2 fw-bold">🎵 외부 오디오 재생</div>
+              <audio controls class="w-100" style="border-radius:8px;"><source src="${v.url}" type="audio/mpeg"></audio>
+            </div>`;
+          } else if (v.type === 'direct_video') {
+            html += `<div class="video-container"><video width="100%" height="320" controls style="border-radius:16px;"><source src="${v.url}"></video></div>`;
+          }
+        });
+
+        tList.innerHTML += html + `</div>`;
+      });
+    }
+
+    function renderGradeGroup(label, students, date, period) {
+      if (!students || students.length === 0) return "";
+      const tagId = (name) => `tag-${date}-${period}-${name}`.replace(/[^a-zA-Z0-9-_가-힣]/g, '_');
+      let tags = students.map(s => `
+        <label class="student-tag ${s.isAbsent ? 'is-absent' : ''}" id="${tagId(s.name)}">
+          <input type="checkbox" ${s.isAbsent ? 'checked' : ''} onchange="markAbsence('${date}', '${period}', '${s.name}', this)">
+          ${s.name}
+        </label>`).join('');
+      return `<div class="grade-group"><span class="grade-label me-2 fw-bold small text-secondary">${label}</span>${tags}</div>`;
+    }
+
+    async function markAbsence(date, period, name, el) {
+      if (!db) return;
+      const key = `${date}_${period}_${name}`;
+      const tagId = `tag-${date}-${period}-${name}`.replace(/[^a-zA-Z0-9-_가-힣]/g, '_');
+      const tag = document.getElementById(tagId);
+      if (tag) tag.classList.toggle('is-absent', el.checked);
+
+      try {
+        if (el.checked) {
+          await db.collection('attendance').doc(key).set({ dateStr: date, period, name });
+          absenceMap[key] = true;
+        } else {
+          await db.collection('attendance').doc(key).delete();
+          delete absenceMap[key];
+        }
+      } catch(e) {
+        console.error("출석 처리 오류:", e);
+      }
+    }
+
+    function searchMySchedule() {
+      const name = document.getElementById('userName').value.trim();
+      const resDiv = document.getElementById('searchRes');
+      resDiv.innerHTML = "";
+      if (!name) return;
+      let found = false;
+      bData.forEach(day => {
+        day.tasks.forEach(task => {
+          const allNames = [...(task.p3_list||[]), ...(task.p2_list||[]), ...(task.p1_list||[])].map(s => s.name);
+          if (allNames.includes(name)) {
+            resDiv.innerHTML += `<div class="mb-1">📅 <b>${day.date}</b> [${task.period}] 배정 확인되었습니다.</div>`;
+            found = true;
+          }
+        });
+      });
+      if (!found) resDiv.innerHTML = "배정된 방송 일정이 존재하지 않습니다.";
+    }
+
+    // ============================================================
+    // 신청곡
+    // ============================================================
+    async function loadRequests() {
+      if (!db) return;
+      try {
+        const snap = await db.collection('songs').orderBy('createdAt').get();
+        const w = document.getElementById('waitList');
+        const dn = document.getElementById('doneList');
+        w.innerHTML = ""; dn.innerHTML = "";
+
+        snap.docs.forEach(doc => {
+          const item = { id: doc.id, ...doc.data() };
+          const h = `<div class="song-card">
+            <div class="song-main" onclick="window.open('https://music.youtube.com/search?q=${encodeURIComponent(item.song)}', '_blank')">
+              <span class="song-name">${item.song}</span>
+              <span class="song-meta">${item.classInfo} · ${item.name}</span>
+            </div>
+            <div class="d-flex align-items-center gap-2">
+              ${currentPw === "9600" ? `<button class="btn-row-del" onclick="deleteSongDoc('${item.id}')">삭제</button>` : ''}
+              <div class="check-circle ${item.isDone ? 'checked' : ''}" onclick="toggleSong('${item.id}', ${!item.isDone})">${item.isDone ? '✓' : ''}</div>
+            </div>
+          </div>`;
+          if (item.isDone) dn.innerHTML += h; else w.innerHTML += h;
+        });
+      } catch(e) {
+        console.error("신청곡 로드 오류:", e);
+      }
+    }
+
+    async function toggleSong(docId, isDone) {
+      if (!db) return;
+      await db.collection('songs').doc(docId).update({ isDone });
+      loadRequests();
+    }
+
+    async function deleteSongDoc(docId) {
+      if (!db || !confirm("이 신청곡 데이터를 삭제합니까?")) return;
+      await db.collection('songs').doc(docId).delete();
+      loadRequests();
+    }
+
+    async function askClearRequests() {
+      const pw = prompt("신청곡 목록을 전부 비우시겠습니까? 암호를 입력하세요.");
+      if (pw !== "9600" || !db) return;
+      try {
+        const snap = await db.collection('songs').get();
+        const batch = db.batch();
+        snap.docs.forEach(doc => batch.delete(doc.ref));
+        await batch.commit();
+        alert("초기화 완료");
+        loadRequests();
+      } catch(e) {
+        alert("오류: " + e.message);
+      }
+    }
+
+    // ============================================================
+    // 업무 매뉴얼
+    // ============================================================
+    async function loadManual() {
+      if (!db) return;
+      try {
+        const snap = await db.collection('manuals').orderBy('createdAt').get();
+        rawManualList = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+
+        const container = document.getElementById('manualLargeGridContainer');
+        container.innerHTML = "";
+
+        const grouped = {};
+        rawManualList.forEach(m => {
+          if (!grouped[m.mainTitle]) {
+            grouped[m.mainTitle] = {
+              title: m.mainTitle,
+              desc: m.mainDesc || "",
+              items: []
+            };
+          }
+          grouped[m.mainTitle].items.push(m);
+        });
+
+        for (const key in grouped) {
+          const g = grouped[key];
+          const descHtml = g.desc ? `<p class="main-topic-desc">${g.desc}</p>` : "";
+          let html = `<div class="main-topic-card">
+            <div class="main-topic-header">
+              <h4 class="main-topic-title">${g.title}</h4>${descHtml}
+            </div>
+            <div class="sub-topic-container">`;
+
+          g.items.forEach(m => {
+            const editBtn = currentPw === "9600" ? `
+              <div class="d-flex justify-content-between mt-3 pt-2 border-top" style="border-color:var(--sf-border)!important;">
+                <button class="btn btn-sm btn-outline-dark" style="font-size:0.75rem;border-radius:8px;" onclick="setupManualEdit('${m.id}')">지침 수정</button>
+                <button class="btn-row-del" onclick="deleteManualDoc('${m.id}')">지침 삭제</button>
+              </div>` : "";
+
+            html += `<div class="sub-topic-box">
+              <div>
+                <div class="sub-topic-title">🔹 ${m.subTitle}</div>
+                <div class="manual-content-text">${m.contents}</div>
+              </div>
+              ${editBtn}
+            </div>`;
+          });
+
+          html += `</div></div>`;
+          container.innerHTML += html;
+        }
+      } catch(e) {
+        console.error("매뉴얼 로드 오류:", e);
+      }
+    }
+
+    // ============================================================
+    // 관리자
+    // ============================================================
+    function openAdminHub() {
+      if (currentPw === "9600") return;
+      const pw = prompt("관리자 보안 비밀번호를 입력하십시오.");
+      if (pw === "9600") {
+        currentPw = pw;
+        document.getElementById('adminArea').style.display = "block";
+        loadInitialData();
+        loadManual();
+        loadRequests();
+        alert("관리자 권한 인증 성공");
+      }
+    }
+
+    // --- 방송 일정 폼 ---
+    function loadSelectedScheduleToForm() {
+      const val = document.getElementById('adminScheduleSelector').value;
+      if (val === "NEW") { resetScheduleForm(); return; }
+
+      const [dayIdx, taskId] = val.split('|');
+      const day = bData[dayIdx];
+      const task = day.tasks.find(t => t.id === taskId);
+
+      editTargetDateKey = day.dateValue;
+      editTargetTaskId = taskId;
+
+      document.getElementById('scheduleFormTitle').innerText = "기존 방송 일정 수정 모드";
+      document.getElementById('newDate').value = day.dateValue;
+      document.getElementById('newDate').disabled = true;
+      document.getElementById('newPeriod').value = task.period;
+      document.getElementById('newP3').value = task.p3 || '';
+      document.getElementById('newP2').value = task.p2 || '';
+      document.getElementById('newP1').value = task.p1 || '';
+      document.getElementById('newUrl').value = task.rawVideoUrl || '';
+      document.getElementById('newNotice').value = task.notice || '';
+      document.getElementById('btnDeleteSchedule').style.display = "inline-block";
+      document.getElementById('btnResetScheduleForm').style.display = "inline-block";
+    }
+
+    function resetScheduleForm() {
+      editTargetDateKey = null;
+      editTargetTaskId = null;
+      document.getElementById('scheduleFormTitle').innerText = "새 방송 일정 등록";
+      document.getElementById('newDate').value = "";
+      document.getElementById('newDate').disabled = false;
+      document.getElementById('newPeriod').selectedIndex = 0;
+      document.getElementById('newP3').value = "";
+      document.getElementById('newP2').value = "";
+      document.getElementById('newP1').value = "";
+      document.getElementById('newUrl').value = "";
+      document.getElementById('newNotice').value = "";
+      document.getElementById('adminScheduleSelector').value = "NEW";
+      document.getElementById('btnDeleteSchedule').style.display = "none";
+      document.getElementById('btnResetScheduleForm').style.display = "none";
+    }
+
+    async function submitScheduleForm() {
+      if (!db) return;
+      const dateVal = document.getElementById('newDate').value;
+      if (!dateVal) return alert("날짜를 지정해 주십시오.");
+
+      const days = ['일','월','화','수','목','금','토'];
+      const dateObj = new Date(dateVal + 'T00:00:00');
+      const displayDate = `${dateObj.getMonth()+1}월 ${dateObj.getDate()}일 (${days[dateObj.getDay()]})`;
+
+      const taskData = {
+        period: document.getElementById('newPeriod').value,
+        p3: document.getElementById('newP3').value,
+        p2: document.getElementById('newP2').value,
+        p1: document.getElementById('newP1').value,
+        rawVideoUrl: document.getElementById('newUrl').value,
+        notice: document.getElementById('newNotice').value
+      };
+
+      try {
+        const docRef = db.collection('broadcasts').doc(dateVal);
+
+        if (editTargetTaskId === null) {
+          // 신규 등록
+          const taskId = 'task_' + Date.now();
+          const doc = await docRef.get();
+          if (doc.exists) {
+            await docRef.update({
+              tasks: firebase.firestore.FieldValue.arrayUnion({ id: taskId, ...taskData })
+            });
+          } else {
+            await docRef.set({
+              date: displayDate,
+              dateValue: dateVal,
+              tasks: [{ id: taskId, ...taskData }]
+            });
+          }
+          alert("등록 완료");
+        } else {
+          // 기존 수정
+          const doc = await docRef.get();
+          const tasks = (doc.data().tasks || []).map(t =>
+            t.id === editTargetTaskId ? { id: t.id, ...taskData } : t
+          );
+          await docRef.update({ tasks });
+          alert("수정 완료");
+        }
+
+        resetScheduleForm();
+        await loadInitialData();
+      } catch(e) {
+        alert("오류: " + e.message);
+      }
+    }
+
+    async function deleteScheduleForm() {
+      if (!editTargetTaskId || !db) return;
+      if (!confirm("이 방송 일정을 삭제하시겠습니까?")) return;
+      try {
+        const docRef = db.collection('broadcasts').doc(editTargetDateKey);
+        const doc = await docRef.get();
+        const tasks = (doc.data().tasks || []).filter(t => t.id !== editTargetTaskId);
+        if (tasks.length === 0) {
+          await docRef.delete();
+        } else {
+          await docRef.update({ tasks });
+        }
+        alert("삭제 완료");
+        resetScheduleForm();
+        await loadInitialData();
+      } catch(e) {
+        alert("오류: " + e.message);
+      }
+    }
+
+    // --- 매뉴얼 폼 ---
+    async function addManualEntry() {
+      if (!db) return;
+      const payload = {
+        mainTitle: document.getElementById('manMain').value.trim(),
+        mainDesc: document.getElementById('manDesc').value.trim(),
+        subTitle: document.getElementById('manSub').value.trim(),
+        contents: document.getElementById('manContent').value.trim(),
+        createdAt: firebase.firestore.FieldValue.serverTimestamp()
+      };
+      if (!payload.mainTitle || !payload.subTitle) return alert("대주제와 소주제는 필수입니다.");
+      try {
+        await db.collection('manuals').add(payload);
+        alert("매뉴얼 추가 완료");
+        clearManualForm();
+        loadManual();
+      } catch(e) {
+        alert("오류: " + e.message);
+      }
+    }
+
+    function setupManualEdit(docId) {
+      const m = rawManualList.find(item => item.id === docId);
+      if (!m) return;
+      document.getElementById('editManualDocId').value = docId;
+      document.getElementById('manMain').value = m.mainTitle;
+      document.getElementById('manDesc').value = m.mainDesc || '';
+      document.getElementById('manSub').value = m.subTitle;
+      document.getElementById('manContent').value = m.contents;
+      document.getElementById('manualFormTitle').innerText = "기존 매뉴얼 지침 수정";
+      document.getElementById('btnSubmitManual').innerText = "지침 수정 완료하기";
+      document.getElementById('btnSubmitManual').setAttribute("onclick", "saveManualEdit()");
+      document.getElementById('btnUpdateManual').style.display = "inline-block";
+      document.getElementById('manMain').scrollIntoView({ behavior: 'smooth' });
+    }
+
+    async function saveManualEdit() {
+      if (!db) return;
+      const docId = document.getElementById('editManualDocId').value;
+      const payload = {
+        mainTitle: document.getElementById('manMain').value.trim(),
+        mainDesc: document.getElementById('manDesc').value.trim(),
+        subTitle: document.getElementById('manSub').value.trim(),
+        contents: document.getElementById('manContent').value.trim()
+      };
+      try {
+        await db.collection('manuals').doc(docId).update(payload);
+        alert("매뉴얼 수정 완료");
+        clearManualForm();
+        loadManual();
+      } catch(e) {
+        alert("오류: " + e.message);
+      }
+    }
+
+    async function deleteManualDoc(docId) {
+      if (!db || !confirm("이 지침 문서를 삭제하시겠습니까?")) return;
+      await db.collection('manuals').doc(docId).delete();
+      loadManual();
+    }
+
+    function clearManualForm() {
+      document.getElementById('editManualDocId').value = "";
+      document.getElementById('manMain').value = "";
+      document.getElementById('manDesc').value = "";
+      document.getElementById('manSub').value = "";
+      document.getElementById('manContent').value = "";
+      document.getElementById('manualFormTitle').innerText = "매뉴얼 작성 및 편집";
+      document.getElementById('btnSubmitManual').innerText = "매뉴얼 신규 등록";
+      document.getElementById('btnSubmitManual').setAttribute("onclick", "addManualEntry()");
+      document.getElementById('btnUpdateManual').style.display = "none";
+    }
+
+    // ============================================================
+    // 시작
+    // ============================================================
+    window.onload = () => { loadInitialData(); };
+  </script>
+</body>
+</html>
