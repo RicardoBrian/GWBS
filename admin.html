@@ -528,10 +528,10 @@
 
 <!-- ── Nav ─────────────────────────────────────────────── -->
 <nav id="nav">
-  <div class="nav-logo">
-    <div class="nav-logo-dot">📻</div>
-    <span>GWBS</span>
-  </div>
+  <a class="nav-logo" href="index.html" style="display:flex;align-items:center;gap:8px;text-decoration:none;">
+    <img src="logo.png" alt="로고" style="height:32px;width:auto;">
+    <span style="color:var(--text);font-weight:600;">GWBS</span>
+  </a>
   <span class="nav-title">관산중학교 방송부 관리자</span>
   <div class="nav-actions">
     <button class="btn ghost sm" id="dark-toggle" onclick="toggleDark()">🌙 다크</button>
@@ -594,6 +594,19 @@
           <div class="stat-icon">🚨</div>
           <div class="stat-val" id="stat-absent">–</div>
           <div class="stat-label">결석 기록</div>
+        </div>
+      </div>
+      <div class="card" style="margin-top:20px;">
+        <div style="margin-bottom:12px;">
+          <h3 style="font-size:1rem;margin:0 0 4px;">방송 관리 비밀번호</h3>
+          <div class="s-sub">메인 페이지에서 방송 일정 수정 시 사용하는 비밀번호</div>
+        </div>
+        <div style="display:flex;gap:10px;align-items:end;">
+          <div style="flex:1;">
+            <label class="lbl">비밀번호</label>
+            <input class="inp" type="text" id="sched-pw-input" placeholder="방송 관리 비밀번호">
+          </div>
+          <button class="btn accent" onclick="saveSchedPw()">저장</button>
         </div>
       </div>
     </section>
@@ -734,10 +747,19 @@
         <button class="btn danger sm" onclick="resetAllSongs()">전체 초기화</button>
       </div>
       <div class="card" style="margin-bottom:20px;">
-        <div style="display:grid;grid-template-columns:1fr 1fr 2fr auto;gap:10px;align-items:end;">
+        <div style="display:grid;grid-template-columns:70px 1fr 1fr 2fr 1fr auto;gap:10px;align-items:end;">
+          <div>
+            <label class="lbl">학년</label>
+            <select class="inp" id="song-grade">
+              <option value="">-</option>
+              <option value="1">1학년</option>
+              <option value="2">2학년</option>
+              <option value="3">3학년</option>
+            </select>
+          </div>
           <div>
             <label class="lbl">반</label>
-            <input class="inp" type="text" id="song-class" placeholder="예: 3-2">
+            <input class="inp" type="text" id="song-class" placeholder="예: 2반">
           </div>
           <div>
             <label class="lbl">이름</label>
@@ -745,7 +767,11 @@
           </div>
           <div>
             <label class="lbl">신청곡</label>
-            <input class="inp" type="text" id="song-title" placeholder="곡 제목 – 아티스트">
+            <input class="inp" type="text" id="song-title" placeholder="곡 제목">
+          </div>
+          <div>
+            <label class="lbl">가수</label>
+            <input class="inp" type="text" id="song-artist" placeholder="가수 이름">
           </div>
           <button class="btn accent" style="align-self:end;" onclick="addSong()">추가</button>
         </div>
@@ -849,7 +875,7 @@ function checkAuth() {
 }
 function checkPassword() {
   const v = document.getElementById('pw-input').value;
-  if (v === '9600') {
+  if (v === 'qjatjrdl1') {
     sessionStorage.setItem('gwbs_auth', '1');
     document.getElementById('pw-modal').classList.remove('open');
     initApp();
@@ -1225,7 +1251,7 @@ function songItemHtml(s) {
   return `<div class="song-item">
     <div class="song-info">
       <div class="song-title">${escHtml(s.song || '')}</div>
-      <div class="song-meta">${escHtml(s.classInfo || '')} · ${escHtml(s.name || '')}</div>
+      <div class="song-meta">${escHtml(s.classInfo || '')} · ${escHtml(s.name || '')}${s.artist ? ' · ' + escHtml(s.artist) : ''}</div>
     </div>
     <button class="btn sm ${s.isDone ? 'ghost' : 'accent'}" onclick="toggleSong('${s.id}',${s.isDone})" title="${s.isDone ? '대기로 되돌리기' : '완료 처리'}">
       ${s.isDone ? '↩' : '✓'}
@@ -1235,15 +1261,19 @@ function songItemHtml(s) {
 }
 
 async function addSong() {
+  const grade = document.getElementById('song-grade').value.trim();
   const classInfo = document.getElementById('song-class').value.trim();
   const name = document.getElementById('song-name').value.trim();
   const song = document.getElementById('song-title').value.trim();
+  const artist = document.getElementById('song-artist').value.trim();
   if (!song) { showToast('신청곡 제목을 입력해 주세요', 'warn'); return; }
   try {
-    await db.collection('songs').add({ classInfo, name, song, isDone: false, createdAt: firebase.firestore.FieldValue.serverTimestamp() });
+    await db.collection('songs').add({ grade, classInfo, name, song, artist, isDone: false, createdAt: firebase.firestore.FieldValue.serverTimestamp() });
+    document.getElementById('song-grade').value = '';
     document.getElementById('song-class').value = '';
     document.getElementById('song-name').value = '';
     document.getElementById('song-title').value = '';
+    document.getElementById('song-artist').value = '';
     showToast('신청곡 추가됨', 'success');
   } catch(e) {
     showToast('추가 실패: ' + e.message, 'error');
@@ -1384,9 +1414,31 @@ document.addEventListener('keydown', e => {
   }
 });
 
+// ── SchedPw ───────────────────────────────────────────────
+async function loadSchedPw() {
+  try {
+    const doc = await db.collection('settings').doc('app').get();
+    if (doc.exists && doc.data().schedPw) {
+      document.getElementById('sched-pw-input').value = doc.data().schedPw;
+    }
+  } catch(e) { /* ignore */ }
+}
+
+async function saveSchedPw() {
+  const pw = document.getElementById('sched-pw-input').value.trim();
+  if (!pw) { showToast('비밀번호를 입력하세요', 'warn'); return; }
+  try {
+    await db.collection('settings').doc('app').set({ schedPw: pw }, { merge: true });
+    showToast('저장되었습니다', 'success');
+  } catch(e) {
+    showToast('저장 실패: ' + e.message, 'error');
+  }
+}
+
 // ── Init ──────────────────────────────────────────────────
 function initApp() {
   loadSection('dashboard');
+  loadSchedPw();
 }
 
 checkAuth();

@@ -751,8 +751,8 @@ select.inp { cursor: pointer; }
 
 <!-- Nav -->
 <nav id="nav" role="navigation" aria-label="메인 내비게이션">
-  <a class="nav-logo" href="#" aria-label="홈으로">
-    <img src="https://i.ibb.co/qY4jmX3L/image.webp" alt="관산중학교 방송부 로고">
+  <a class="nav-logo" href="index.html" aria-label="홈으로">
+    <img src="logo.png" alt="관산중학교 방송부 로고">
     <span class="nav-logo-text">관산중학교 방송부</span>
   </a>
 
@@ -769,6 +769,7 @@ select.inp { cursor: pointer; }
 
   <div class="nav-right">
     <button class="dark-toggle" id="dark-toggle" aria-label="다크모드 전환">☀️</button>
+    <button class="btn ghost sm" id="sched-edit-btn" onclick="toggleSchedEdit()" style="font-size:0.8rem;padding:6px 12px;border:1px solid var(--border);border-radius:var(--r-pill);">방송 관리</button>
     <a class="admin-link" href="admin.html">관리자</a>
   </div>
 </nav>
@@ -785,6 +786,13 @@ select.inp { cursor: pointer; }
       <input type="search" class="inp name-search-inp" id="name-search"
         placeholder="이름 검색…" aria-label="학생 이름 검색">
     </div>
+    <div id="sched-edit-toolbar" style="display:none;padding:10px 0 4px;">
+      <div style="background:var(--glass);backdrop-filter:var(--blur);-webkit-backdrop-filter:var(--blur);border:1px solid var(--border);border-radius:var(--r);padding:12px 16px;display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
+        <span style="font-size:0.85rem;color:var(--accent);font-weight:600;">✏️ 방송 관리 모드</span>
+        <button class="btn accent sm" style="padding:6px 14px;font-size:0.82rem;" onclick="openAddScheduleModal()">＋ 일정 추가</button>
+        <button class="btn danger sm" style="padding:6px 14px;font-size:0.82rem;" onclick="exitSchedEdit()">관리 종료</button>
+      </div>
+    </div>
     <div class="task-list" id="task-list">
       <div class="empty-state">
         <span class="empty-icon">📻</span>
@@ -797,7 +805,11 @@ select.inp { cursor: pointer; }
   <div class="tab-panel" id="panel-songs" role="tabpanel" aria-labelledby="tab-songs">
     <div class="songs-top">
       <h2 class="songs-page-title">신청곡 목록</h2>
-      <button class="btn danger sm" id="reset-songs-btn">전체 초기화</button>
+      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+        <a href="request.html" style="text-decoration:none;background:var(--accent);color:#fff;border:none;padding:7px 14px;border-radius:var(--r-pill);font-size:0.82rem;font-weight:500;cursor:pointer;">＋ 신청하기</a>
+        <button class="btn ghost sm" id="playlist-btn" onclick="openYouTubePlaylist()" style="padding:6px 14px;font-size:0.82rem;">▶ 재생 목록</button>
+        <button class="btn danger sm" id="reset-songs-btn" style="padding:6px 14px;font-size:0.82rem;">전체 초기화</button>
+      </div>
     </div>
     <div class="songs-grid">
       <div>
@@ -1010,6 +1022,144 @@ function buildMediaElement(parsed) {
 let currentDateKey = null;
 let currentAttendance = {}; // docId → boolean (absent)
 let currentSearchTerm = '';
+let schedEditMode = false;
+let schedPw = null;
+
+async function loadSchedPw() {
+  try {
+    const doc = await db.collection('settings').doc('app').get();
+    if (doc.exists && doc.data().schedPw) schedPw = doc.data().schedPw;
+  } catch(e) { /* ignore */ }
+}
+
+function toggleSchedEdit() {
+  if (schedEditMode) { exitSchedEdit(); return; }
+  showModal(
+    '방송 관리 모드',
+    '방송 일정을 수정하려면 비밀번호를 입력하세요.',
+    () => {
+      schedEditMode = true;
+      document.getElementById('sched-edit-toolbar').style.display = 'block';
+      document.getElementById('sched-edit-btn').textContent = '관리 종료';
+      if (currentDateKey) loadBroadcastForDate(currentDateKey);
+    },
+    schedPw || '9600'
+  );
+}
+
+function exitSchedEdit() {
+  schedEditMode = false;
+  document.getElementById('sched-edit-toolbar').style.display = 'none';
+  document.getElementById('sched-edit-btn').textContent = '방송 관리';
+  if (currentDateKey) loadBroadcastForDate(currentDateKey);
+}
+
+function openAddScheduleModal() {
+  if (!currentDateKey) {
+    const dateKey = prompt('날짜를 입력하세요 (예: 2026-09-01)');
+    if (!dateKey || !/^\d{4}-\d{2}-\d{2}$/.test(dateKey)) {
+      showToast('올바른 날짜 형식이 아닙니다 (예: 2026-09-01)', 'warn'); return;
+    }
+    openTaskEditModal(null, dateKey);
+  } else {
+    openTaskEditModal(null, currentDateKey);
+  }
+}
+
+function openTaskEditModal(task, dateKey) {
+  const isNew = !task;
+  const overlay = document.getElementById('modal-overlay');
+  const titleEl = document.getElementById('modal-title-text');
+  const descEl = document.getElementById('modal-desc-text');
+  const pwInp = document.getElementById('modal-pw-input');
+  const confirmBtn = document.getElementById('modal-confirm-btn');
+  const cancelBtn = document.getElementById('modal-cancel-btn');
+
+  titleEl.textContent = isNew ? '일정 추가' : '일정 수정';
+  const escV = v => String(v||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  descEl.innerHTML = `<div style="display:flex;flex-direction:column;gap:8px;margin-top:8px;">
+    <div><label style="font-size:0.78rem;color:var(--text-3);">교시/방송시간</label><input type="text" class="inp" id="te-period" value="${escV(task?.period)}" placeholder="예: 아침방송" style="margin-top:4px;"></div>
+    <div><label style="font-size:0.78rem;color:var(--text-3);">3학년 담당</label><input type="text" class="inp" id="te-p3" value="${escV(task?.p3)}" placeholder="이름 (쉼표 구분)" style="margin-top:4px;"></div>
+    <div><label style="font-size:0.78rem;color:var(--text-3);">2학년 담당</label><input type="text" class="inp" id="te-p2" value="${escV(task?.p2)}" placeholder="이름 (쉼표 구분)" style="margin-top:4px;"></div>
+    <div><label style="font-size:0.78rem;color:var(--text-3);">1학년 담당</label><input type="text" class="inp" id="te-p1" value="${escV(task?.p1)}" placeholder="이름 (쉼표 구분)" style="margin-top:4px;"></div>
+    <div><label style="font-size:0.78rem;color:var(--text-3);">영상 URL (줄바꿈 구분)</label><textarea class="inp" id="te-url" rows="3" style="margin-top:4px;">${escV(task?.rawVideoUrl)}</textarea></div>
+    <div><label style="font-size:0.78rem;color:var(--text-3);">공지사항</label><input type="text" class="inp" id="te-notice" value="${escV(task?.notice)}" placeholder="특별 공지" style="margin-top:4px;"></div>
+  </div>`;
+  pwInp.style.display = 'none';
+  overlay.style.display = 'flex';
+
+  const newConfirm = confirmBtn.cloneNode(true);
+  confirmBtn.parentNode.replaceChild(newConfirm, confirmBtn);
+  const newCancel = cancelBtn.cloneNode(true);
+  cancelBtn.parentNode.replaceChild(newCancel, cancelBtn);
+
+  newConfirm.textContent = isNew ? '추가' : '저장';
+  newConfirm.addEventListener('click', async () => {
+    const periodVal = document.getElementById('te-period').value.trim();
+    if (!periodVal) { showToast('교시/방송시간을 입력하세요.', 'warn'); return; }
+    const newTask = {
+      id: task ? task.id : ('task_' + dateKey + '_' + periodVal.replace(/\s/g,'')),
+      period: periodVal,
+      p3: document.getElementById('te-p3').value.trim(),
+      p2: document.getElementById('te-p2').value.trim(),
+      p1: document.getElementById('te-p1').value.trim(),
+      rawVideoUrl: document.getElementById('te-url').value.trim(),
+      notice: document.getElementById('te-notice').value.trim(),
+    };
+    overlay.style.display = 'none';
+    pwInp.style.display = '';
+    await saveTaskEdit(dateKey, newTask, isNew);
+  });
+  newCancel.addEventListener('click', () => {
+    overlay.style.display = 'none';
+    pwInp.style.display = '';
+  });
+}
+
+async function saveTaskEdit(dateKey, newTask, isNew) {
+  try {
+    const docRef = db.collection('broadcasts').doc(dateKey);
+    const snap = await docRef.get();
+    let tasks = snap.exists ? (snap.data().tasks || []) : [];
+    if (isNew) {
+      tasks.push(newTask);
+    } else {
+      const idx = tasks.findIndex(t => t.id === newTask.id);
+      if (idx >= 0) tasks[idx] = newTask; else tasks.push(newTask);
+    }
+    if (!snap.exists) {
+      const days = ['일','월','화','수','목','금','토'];
+      const d = new Date(dateKey + 'T00:00:00');
+      const dateDisp = `${d.getMonth()+1}월 ${d.getDate()}일 (${days[d.getDay()]})`;
+      await docRef.set({ date: dateDisp, dateValue: dateKey, tasks });
+      await loadBroadcastDates();
+      currentDateKey = dateKey;
+      document.getElementById('date-select').value = dateKey;
+    } else {
+      await docRef.update({ tasks });
+    }
+    showToast('저장되었습니다', 'success');
+    loadBroadcastForDate(dateKey);
+  } catch(e) {
+    showToast('저장 실패: ' + e.message, 'error');
+  }
+}
+
+async function deleteTask(dateKey, taskId) {
+  showModal('일정 삭제', '이 일정을 삭제하시겠습니까?', async () => {
+    try {
+      const docRef = db.collection('broadcasts').doc(dateKey);
+      const snap = await docRef.get();
+      if (!snap.exists) return;
+      const tasks = (snap.data().tasks || []).filter(t => t.id !== taskId);
+      await docRef.update({ tasks });
+      showToast('삭제되었습니다', 'success');
+      loadBroadcastForDate(dateKey);
+    } catch(e) {
+      showToast('삭제 실패: ' + e.message, 'error');
+    }
+  }, schedPw || '9600');
+}
 
 async function loadBroadcastDates() {
   try {
@@ -1161,6 +1311,25 @@ function buildTaskCard(task, dateKey) {
   }
 
   card.appendChild(body);
+
+  if (schedEditMode) {
+    const editBar = document.createElement('div');
+    editBar.style.cssText = 'display:flex;gap:8px;padding:6px 14px 10px;justify-content:flex-end;border-top:1px solid var(--hairline);margin-top:8px;';
+    const editBtn = document.createElement('button');
+    editBtn.className = 'btn ghost sm';
+    editBtn.style.cssText = 'padding:5px 12px;font-size:0.8rem;';
+    editBtn.textContent = '수정';
+    editBtn.addEventListener('click', () => openTaskEditModal(task, dateKey));
+    const delBtn = document.createElement('button');
+    delBtn.className = 'btn danger sm';
+    delBtn.style.cssText = 'padding:5px 12px;font-size:0.8rem;';
+    delBtn.textContent = '삭제';
+    delBtn.addEventListener('click', () => deleteTask(dateKey, task.id));
+    editBar.appendChild(editBtn);
+    editBar.appendChild(delBtn);
+    card.appendChild(editBar);
+  }
+
   return card;
 }
 
@@ -1265,10 +1434,21 @@ function renderSongList(container, items, isDone) {
     const meta = document.createElement('div');
     meta.className = 'song-meta-text';
     const parts = [item.classInfo, item.name].filter(Boolean);
+    if (item.artist) parts.push(item.artist);
     meta.textContent = parts.join(' · ');
+
+    // Playlist checkbox
+    const chk = document.createElement('input');
+    chk.type = 'checkbox';
+    chk.className = 'song-select-chk';
+    chk.dataset.song = item.song || '';
+    chk.dataset.artist = item.artist || '';
+    chk.setAttribute('aria-label', `${item.song} 선택`);
+    chk.style.cssText = 'width:16px;height:16px;cursor:pointer;accent-color:var(--accent);flex-shrink:0;margin-right:2px;';
 
     info.appendChild(title);
     info.appendChild(meta);
+    el.insertBefore(chk, el.firstChild);
     el.appendChild(btn);
     el.appendChild(info);
     frag.appendChild(el);
@@ -1293,7 +1473,7 @@ document.getElementById('reset-songs-btn').addEventListener('click', () => {
         showToast('초기화 실패: ' + e.message, 'error');
       }
     },
-    '9600'
+    schedPw || '9600'
   );
 });
 
@@ -1418,8 +1598,19 @@ function showModal(title, desc, onConfirm, requiredPw) {
   overlay.addEventListener('click', handleBgClick);
 }
 
+/* ─── YouTube playlist ────────────────────────────────────────── */
+function openYouTubePlaylist() {
+  const checks = document.querySelectorAll('.song-select-chk:checked');
+  if (!checks.length) { showToast('재생할 곡을 선택하세요.', 'warn'); return; }
+  checks.forEach(chk => {
+    const q = encodeURIComponent([chk.dataset.song, chk.dataset.artist].filter(Boolean).join(' '));
+    window.open('https://music.youtube.com/search?q=' + q, '_blank', 'noopener');
+  });
+}
+
 /* ─── Boot ────────────────────────────────────────────────────── */
 loadBroadcastDates();
+loadSchedPw();
 initSongs(); // start realtime listener immediately
 </script>
 </body>
