@@ -334,7 +334,7 @@ select.inp { cursor: pointer; }
   flex-shrink: 0;
 }
 
-.dark-toggle {
+.admin-link {
   width: 36px;
   height: 36px;
   border-radius: 50%;
@@ -346,26 +346,65 @@ select.inp { cursor: pointer; }
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 17px;
+  font-size: 18px;
   transition: all var(--dur) var(--ease);
-  color: var(--text);
-}
-.dark-toggle:hover { background: var(--highlight); transform: scale(1.08); }
-.dark-toggle:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
-
-.admin-link {
-  font-size: 12px;
-  font-weight: 600;
-  color: var(--text-3);
   text-decoration: none;
-  padding: 5px 12px;
-  border-radius: var(--radius-pill);
-  border: 1px solid var(--hairline);
-  transition: all var(--dur) var(--ease);
-  white-space: nowrap;
+  flex-shrink: 0;
 }
-.admin-link:hover { color: var(--text); background: var(--highlight); }
+.admin-link:hover { background: var(--highlight); transform: scale(1.08); }
 .admin-link:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+/* ─── Nav clock/info ──────────────────────────────────────────── */
+.nav-info {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text-2);
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+.nav-info .nav-dday {
+  background: var(--accent);
+  color: #fff;
+  padding: 2px 8px;
+  border-radius: var(--radius-pill);
+  font-size: 11px;
+  font-weight: 700;
+}
+.nav-info .nav-dday.today {
+  background: var(--success);
+}
+.nav-clock {
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.02em;
+}
+@media (max-width: 480px) {
+  .nav-info .nav-date-text { display: none; }
+}
+
+/* ─── Tab badge ───────────────────────────────────────────────── */
+.tab-btn .tab-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 16px;
+  height: 16px;
+  padding: 0 4px;
+  border-radius: var(--radius-pill);
+  background: var(--danger);
+  color: #fff;
+  font-size: 10px;
+  font-weight: 700;
+  margin-left: 4px;
+  line-height: 1;
+  transition: all var(--dur) var(--ease);
+}
+.tab-btn.active .tab-badge {
+  background: rgba(255,255,255,0.35);
+  color: #fff;
+}
 
 /* ─── Main layout ─────────────────────────────────────────────── */
 #main {
@@ -706,7 +745,9 @@ select.inp { cursor: pointer; }
 
 .modal-box {
   width: 100%;
-  max-width: 380px;
+  max-width: 420px;
+  max-height: 90dvh;
+  overflow-y: auto;
   padding: 28px 26px 24px;
   transform: scale(0.94) translateY(10px);
   opacity: 0;
@@ -761,16 +802,20 @@ select.inp { cursor: pointer; }
       <button class="tab-btn active" role="tab" aria-selected="true"
         aria-controls="panel-schedule" id="tab-schedule" data-tab="schedule">방송 일정</button>
       <button class="tab-btn" role="tab" aria-selected="false"
-        aria-controls="panel-songs" id="tab-songs" data-tab="songs">신청곡 목록</button>
+        aria-controls="panel-songs" id="tab-songs" data-tab="songs">신청곡 목록<span class="tab-badge" id="songs-tab-badge" style="display:none;">0</span></button>
       <button class="tab-btn" role="tab" aria-selected="false"
         aria-controls="panel-manual" id="tab-manual" data-tab="manual">업무 매뉴얼</button>
     </div>
   </div>
 
   <div class="nav-right">
-    <button class="dark-toggle" id="dark-toggle" aria-label="다크모드 전환">☀️</button>
-    <button class="btn ghost sm" id="sched-edit-btn" onclick="toggleSchedEdit()" style="font-size:0.8rem;padding:6px 12px;border:1px solid var(--border);border-radius:var(--r-pill);">방송 관리</button>
-    <a class="admin-link" href="admin.html">관리자</a>
+    <div class="nav-info" id="nav-info">
+      <span class="nav-dday" id="nav-dday" style="display:none;"></span>
+      <span class="nav-date-text" id="nav-date-text"></span>
+      <span class="nav-clock" id="nav-clock"></span>
+    </div>
+    <button class="btn accent sm" id="sched-edit-btn" onclick="toggleSchedEdit()" style="white-space:nowrap;">＋ 일정 추가</button>
+    <a class="admin-link" href="admin.html" aria-label="관리자 페이지">⚙️</a>
   </div>
 </nav>
 
@@ -889,21 +934,45 @@ function dismissToast(el) {
   el.addEventListener('animationend', () => el.remove(), { once: true });
 }
 
-/* ─── Dark mode ───────────────────────────────────────────────── */
-const darkToggleBtn = document.getElementById('dark-toggle');
-const storedDark = localStorage.getItem('gwbs-dark');
-let darkMode = storedDark !== null
-  ? storedDark === '1'
-  : window.matchMedia('(prefers-color-scheme: dark)').matches;
+/* ─── Dark mode (OS auto) ─────────────────────────────────────── */
+const mq = window.matchMedia('(prefers-color-scheme: dark)');
+function applyDark(on) { document.body.classList.toggle('dark', on); }
+applyDark(mq.matches);
+mq.addEventListener('change', e => applyDark(e.matches));
 
-function applyDark(on) {
-  document.body.classList.toggle('dark', on);
-  darkToggleBtn.textContent = on ? '☀️' : '🌙';
-  darkToggleBtn.setAttribute('aria-label', on ? '라이트모드로 전환' : '다크모드로 전환');
-  localStorage.setItem('gwbs-dark', on ? '1' : '0');
+/* ─── Clock & D-day ───────────────────────────────────────────── */
+const DAYS_KO = ['일','월','화','수','목','금','토'];
+let nextBroadcastDate = null; // set after broadcasts load
+
+function updateClock() {
+  const now = new Date();
+  const hh = String(now.getHours()).padStart(2,'0');
+  const mm = String(now.getMinutes()).padStart(2,'0');
+  document.getElementById('nav-clock').textContent = `${hh}:${mm}`;
+
+  const m = now.getMonth() + 1;
+  const d = now.getDate();
+  const dow = DAYS_KO[now.getDay()];
+  document.getElementById('nav-date-text').textContent = `${m}월 ${d}일(${dow})`;
+
+  if (nextBroadcastDate) {
+    const todayStr = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')}`;
+    const diff = Math.round((new Date(nextBroadcastDate + 'T00:00:00') - new Date(todayStr + 'T00:00:00')) / 86400000);
+    const ddayEl = document.getElementById('nav-dday');
+    ddayEl.style.display = '';
+    if (diff === 0) {
+      ddayEl.textContent = 'D-DAY';
+      ddayEl.className = 'nav-dday today';
+    } else if (diff > 0) {
+      ddayEl.textContent = `D-${diff}`;
+      ddayEl.className = 'nav-dday';
+    } else {
+      ddayEl.style.display = 'none';
+    }
+  }
 }
-applyDark(darkMode);
-darkToggleBtn.addEventListener('click', () => { darkMode = !darkMode; applyDark(darkMode); });
+updateClock();
+setInterval(updateClock, 10000);
 
 /* ─── Tab switching ───────────────────────────────────────────── */
 const tabBtns   = document.querySelectorAll('.tab-btn');
@@ -1040,7 +1109,7 @@ function toggleSchedEdit() {
     () => {
       schedEditMode = true;
       document.getElementById('sched-edit-toolbar').style.display = 'block';
-      document.getElementById('sched-edit-btn').textContent = '관리 종료';
+      document.getElementById('sched-edit-btn').textContent = '✕ 관리 종료';
       if (currentDateKey) loadBroadcastForDate(currentDateKey);
     },
     schedPw || '9600'
@@ -1050,7 +1119,7 @@ function toggleSchedEdit() {
 function exitSchedEdit() {
   schedEditMode = false;
   document.getElementById('sched-edit-toolbar').style.display = 'none';
-  document.getElementById('sched-edit-btn').textContent = '방송 관리';
+  document.getElementById('sched-edit-btn').textContent = '＋ 일정 추가';
   if (currentDateKey) loadBroadcastForDate(currentDateKey);
 }
 
@@ -1163,16 +1232,28 @@ async function deleteTask(dateKey, taskId) {
 
 async function loadBroadcastDates() {
   try {
+    const todayStr = new Date().toISOString().slice(0,10);
     const snap = await db.collection('broadcasts').orderBy('dateValue', 'asc').get();
     const sel = document.getElementById('date-select');
     sel.innerHTML = '<option value="">날짜를 선택하세요</option>';
+    let autoSelect = null;
+    nextBroadcastDate = null;
     snap.forEach(doc => {
       const data = doc.data();
       const opt = document.createElement('option');
       opt.value = doc.id;
       opt.textContent = formatDateKo(data.date || doc.id);
       sel.appendChild(opt);
+      // auto-select today if broadcast exists, else track nearest future
+      if (doc.id === todayStr) autoSelect = doc.id;
+      if (!nextBroadcastDate && doc.id >= todayStr) nextBroadcastDate = doc.id;
     });
+    updateClock();
+    if (autoSelect) {
+      sel.value = autoSelect;
+      currentDateKey = autoSelect;
+      loadBroadcastForDate(autoSelect);
+    }
     if (snap.empty) showToast('등록된 방송 일정이 없습니다.', 'info');
   } catch (e) {
     console.error(e);
@@ -1387,6 +1468,14 @@ function initSongs() {
       });
       document.getElementById('pending-count').textContent = pending.length;
       document.getElementById('done-count').textContent = done.length;
+      // Tab badge
+      const badge = document.getElementById('songs-tab-badge');
+      if (pending.length > 0) {
+        badge.textContent = pending.length;
+        badge.style.display = '';
+      } else {
+        badge.style.display = 'none';
+      }
       renderSongList(document.getElementById('pending-list'), pending, false);
       renderSongList(document.getElementById('done-list'), done, true);
     }, err => {
