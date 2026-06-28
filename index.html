@@ -433,13 +433,31 @@ body.dark #te-inner { background: rgba(22,24,40,0.97) !important; }
 
 /* ─── Task-edit overlay animation ────────────────────────────── */
 #te-inner {
-  transform: translateY(56px);
+  transform: translateY(40px);
   opacity: 0;
   transition: transform 0.32s var(--ease), opacity 0.28s var(--ease);
 }
 #task-edit-overlay.te-open #te-inner {
   transform: translateY(0);
   opacity: 1;
+}
+
+/* Mobile: bottom sheet with safe-area clearance */
+@media (max-width: 600px) {
+  #task-edit-overlay { align-items: flex-end !important; padding: 0 !important; }
+  #te-inner {
+    border-radius: 20px 20px 0 0 !important;
+    padding-bottom: max(28px, env(safe-area-inset-bottom, 28px)) !important;
+  }
+}
+/* Desktop: centered dialog */
+@media (min-width: 601px) {
+  #task-edit-overlay { align-items: center !important; padding: 24px !important; }
+  #te-inner {
+    border-radius: 20px !important;
+    max-height: 88dvh !important;
+    box-shadow: 0 24px 64px rgba(0,0,0,0.22) !important;
+  }
 }
 
 /* ─── Main layout ─────────────────────────────────────────────── */
