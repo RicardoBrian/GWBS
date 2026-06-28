@@ -406,6 +406,30 @@ select.inp { cursor: pointer; }
   color: #fff;
 }
 
+/* ─── Task edit chips ─────────────────────────────────────────── */
+.te-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 10px 3px 12px;
+  background: var(--highlight);
+  border: 1px solid rgba(0,113,227,0.22);
+  border-radius: var(--radius-pill);
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--accent);
+}
+.te-chip button {
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 11px;
+  color: var(--text-3);
+  padding: 0;
+  line-height: 1;
+}
+.te-chip button:hover { color: var(--danger); }
+
 /* ─── Main layout ─────────────────────────────────────────────── */
 #main {
   max-width: 960px;
@@ -902,39 +926,78 @@ select.inp { cursor: pointer; }
   </div>
 </div>
 
-<!-- Task edit modal (separate from password modal) -->
-<div id="task-edit-overlay" style="display:none;position:fixed;inset:0;z-index:200;background:rgba(13,15,26,0.48);backdrop-filter:blur(7px);-webkit-backdrop-filter:blur(7px);display:none;align-items:center;justify-content:center;padding:16px;">
-  <div class="card" style="width:100%;max-width:440px;max-height:92dvh;overflow-y:auto;padding:24px 22px 20px;">
-    <h3 style="font-size:17px;font-weight:700;margin-bottom:16px;" id="te-modal-title">일정 추가</h3>
-    <div style="display:flex;flex-direction:column;gap:12px;">
+<!-- Task edit modal -->
+<div id="task-edit-overlay" style="display:none;position:fixed;inset:0;z-index:200;background:rgba(13,15,26,0.48);backdrop-filter:blur(7px);-webkit-backdrop-filter:blur(7px);align-items:flex-end;justify-content:center;padding:0;">
+  <div class="card" style="width:100%;max-width:560px;max-height:94dvh;overflow-y:auto;padding:24px 22px 28px;border-bottom-left-radius:0;border-bottom-right-radius:0;margin:0 auto;">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;">
+      <h3 style="font-size:17px;font-weight:700;" id="te-modal-title">일정 추가</h3>
+      <button id="te-cancel-btn" style="background:none;border:none;font-size:20px;cursor:pointer;color:var(--text-3);padding:4px;">✕</button>
+    </div>
+    <p style="font-size:12px;color:var(--text-3);margin-bottom:18px;">담당 학생은 추가 안 하셔도 됩니다.</p>
+    <div style="display:flex;flex-direction:column;gap:14px;">
       <div>
-        <label class="lbl">교시/방송시간</label>
-        <input type="text" class="inp" id="te-period" placeholder="예: 아침방송">
+        <label class="lbl">날짜</label>
+        <input type="date" class="inp" id="te-date" style="border-radius:13px;">
       </div>
       <div>
-        <label class="lbl">3학년 담당</label>
-        <input type="text" class="inp" id="te-p3" placeholder="이름 (쉼표 구분)">
+        <label class="lbl">교시</label>
+        <select class="inp" id="te-period" style="border-radius:13px;">
+          <option value="아침조회">아침조회</option>
+          <option value="아침방송">아침방송</option>
+          <option value="점심시간">점심시간</option>
+          <option value="1교시">1교시</option>
+          <option value="2교시">2교시</option>
+          <option value="3교시">3교시</option>
+          <option value="4교시">4교시</option>
+          <option value="5교시">5교시</option>
+          <option value="6교시">6교시</option>
+          <option value="7교시">7교시</option>
+        </select>
       </div>
       <div>
-        <label class="lbl">2학년 담당</label>
-        <input type="text" class="inp" id="te-p2" placeholder="이름 (쉼표 구분)">
+        <label class="lbl">방송부 공지사항</label>
+        <input type="text" class="inp" id="te-notice" placeholder="특별 공지 (선택)" style="border-radius:13px;">
       </div>
       <div>
-        <label class="lbl">1학년 담당</label>
-        <input type="text" class="inp" id="te-p1" placeholder="이름 (쉼표 구분)">
+        <label class="lbl">영상 URL</label>
+        <div id="te-url-list" style="display:flex;flex-direction:column;gap:8px;"></div>
+        <button type="button" onclick="teAddUrl()" class="btn ghost sm" style="margin-top:8px;font-size:12px;">＋ URL 추가</button>
       </div>
       <div>
-        <label class="lbl">영상 URL (줄바꿈으로 여러 개)</label>
-        <textarea class="inp" id="te-url" rows="3" style="border-radius:13px;resize:vertical;"></textarea>
-      </div>
-      <div>
-        <label class="lbl">공지사항</label>
-        <input type="text" class="inp" id="te-notice" placeholder="특별 공지">
+        <label class="lbl">담당 학생</label>
+        <div style="display:flex;flex-direction:column;gap:10px;" id="te-students-section">
+          <div class="te-grade-row" data-grade="3">
+            <div style="font-size:12px;font-weight:600;color:var(--text-3);margin-bottom:4px;">3학년</div>
+            <div style="display:flex;gap:6px;align-items:center;">
+              <select class="inp te-student-select" id="te-sel-3" style="border-radius:13px;flex:1;" onchange="teAddStudent(3,this)">
+                <option value="">학생 선택…</option>
+              </select>
+            </div>
+            <div class="te-chips" id="te-chips-3" style="display:flex;flex-wrap:wrap;gap:6px;margin-top:6px;"></div>
+          </div>
+          <div class="te-grade-row" data-grade="2">
+            <div style="font-size:12px;font-weight:600;color:var(--text-3);margin-bottom:4px;">2학년</div>
+            <div style="display:flex;gap:6px;align-items:center;">
+              <select class="inp te-student-select" id="te-sel-2" style="border-radius:13px;flex:1;" onchange="teAddStudent(2,this)">
+                <option value="">학생 선택…</option>
+              </select>
+            </div>
+            <div class="te-chips" id="te-chips-2" style="display:flex;flex-wrap:wrap;gap:6px;margin-top:6px;"></div>
+          </div>
+          <div class="te-grade-row" data-grade="1">
+            <div style="font-size:12px;font-weight:600;color:var(--text-3);margin-bottom:4px;">1학년</div>
+            <div style="display:flex;gap:6px;align-items:center;">
+              <select class="inp te-student-select" id="te-sel-1" style="border-radius:13px;flex:1;" onchange="teAddStudent(1,this)">
+                <option value="">학생 선택…</option>
+              </select>
+            </div>
+            <div class="te-chips" id="te-chips-1" style="display:flex;flex-wrap:wrap;gap:6px;margin-top:6px;"></div>
+          </div>
+        </div>
       </div>
     </div>
-    <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:18px;">
-      <button class="btn ghost sm" id="te-cancel-btn">취소</button>
-      <button class="btn accent sm" id="te-confirm-btn">추가</button>
+    <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:22px;">
+      <button class="btn accent" id="te-confirm-btn" style="min-width:80px;">추가</button>
     </div>
   </div>
 </div>
@@ -1147,6 +1210,7 @@ function toggleSchedEdit() {
       document.getElementById('sched-edit-toolbar').style.display = 'block';
       document.getElementById('sched-edit-btn').textContent = '✕ 관리 종료';
       if (currentDateKey) loadBroadcastForDate(currentDateKey);
+      openTaskEditModal(null, currentDateKey);
     },
     schedPw || '9600'
   );
@@ -1160,36 +1224,119 @@ function exitSchedEdit() {
 }
 
 function openAddScheduleModal() {
-  if (!currentDateKey) {
-    const dateKey = prompt('날짜를 입력하세요 (예: 2026-09-01)');
-    if (!dateKey || !/^\d{4}-\d{2}-\d{2}$/.test(dateKey)) {
-      showToast('올바른 날짜 형식이 아닙니다 (예: 2026-09-01)', 'warn'); return;
-    }
-    openTaskEditModal(null, dateKey);
-  } else {
-    openTaskEditModal(null, currentDateKey);
+  openTaskEditModal(null, currentDateKey);
+}
+
+/* ── Task edit modal helpers ─────────────────────────────────── */
+let teStudentsCache = null; // { '1': [...names], '2': [...], '3': [...] }
+
+async function teLoadStudents() {
+  if (teStudentsCache) return teStudentsCache;
+  try {
+    const snap = await db.collection('students').orderBy('name').get();
+    teStudentsCache = { '1': [], '2': [], '3': [] };
+    snap.forEach(d => {
+      const g = String(d.data().grade);
+      if (teStudentsCache[g]) teStudentsCache[g].push(d.data().name);
+    });
+  } catch(e) {
+    teStudentsCache = { '1': [], '2': [], '3': [] };
   }
+  return teStudentsCache;
+}
+
+function tePopulateSelects(students) {
+  ['1','2','3'].forEach(g => {
+    const sel = document.getElementById(`te-sel-${g}`);
+    sel.innerHTML = '<option value="">학생 선택…</option>';
+    (students[g] || []).forEach(name => {
+      const opt = document.createElement('option');
+      opt.value = name; opt.textContent = name;
+      sel.appendChild(opt);
+    });
+  });
+}
+
+function teAddStudent(grade, sel) {
+  const name = sel.value;
+  if (!name) return;
+  sel.value = '';
+  const chips = document.getElementById(`te-chips-${grade}`);
+  // avoid duplicates
+  if ([...chips.querySelectorAll('.te-chip')].some(c => c.dataset.name === name)) return;
+  const chip = document.createElement('span');
+  chip.className = 'te-chip'; chip.dataset.name = name;
+  chip.innerHTML = `${escHtml(name)}<button type="button" onclick="this.parentElement.remove()" title="제거">✕</button>`;
+  chips.appendChild(chip);
+}
+
+function teGetStudentNames(grade) {
+  return [...document.querySelectorAll(`#te-chips-${grade} .te-chip`)]
+    .map(c => c.dataset.name).join(', ');
+}
+
+function teSetStudentChips(grade, csv) {
+  const chips = document.getElementById(`te-chips-${grade}`);
+  chips.innerHTML = '';
+  (csv || '').split(',').map(s => s.trim()).filter(Boolean).forEach(name => {
+    const chip = document.createElement('span');
+    chip.className = 'te-chip'; chip.dataset.name = name;
+    chip.innerHTML = `${escHtml(name)}<button type="button" onclick="this.parentElement.remove()" title="제거">✕</button>`;
+    chips.appendChild(chip);
+  });
+}
+
+function teAddUrl(value = '') {
+  const list = document.getElementById('te-url-list');
+  const row = document.createElement('div');
+  row.style.cssText = 'display:flex;gap:6px;align-items:center;';
+  row.innerHTML = `<input type="url" class="inp" placeholder="https://…" value="${escHtml(value)}" style="border-radius:13px;flex:1;">
+    <button type="button" onclick="this.parentElement.remove()" class="btn ghost sm" style="flex-shrink:0;padding:6px 10px;">✕</button>`;
+  list.appendChild(row);
+}
+
+function teGetUrls() {
+  return [...document.querySelectorAll('#te-url-list input')]
+    .map(i => i.value.trim()).filter(Boolean).join('\n');
 }
 
 function openTaskEditModal(task, dateKey) {
   const isNew = !task;
   const overlay = document.getElementById('task-edit-overlay');
 
-  document.getElementById('te-modal-title').textContent = isNew ? '일정 추가' : '일정 수정';
-  document.getElementById('te-period').value = task?.period || '';
-  document.getElementById('te-p3').value = task?.p3 || '';
-  document.getElementById('te-p2').value = task?.p2 || '';
-  document.getElementById('te-p1').value = task?.p1 || '';
-  document.getElementById('te-url').value = task?.rawVideoUrl || '';
+  // Date field
+  const today = new Date().toISOString().slice(0,10);
+  document.getElementById('te-date').value = dateKey || today;
+
+  // Period dropdown
+  const periodSel = document.getElementById('te-period');
+  periodSel.value = task?.period || '아침방송';
+
+  // Notice
   document.getElementById('te-notice').value = task?.notice || '';
+
+  // URLs — reset and populate
+  document.getElementById('te-url-list').innerHTML = '';
+  const urls = (task?.rawVideoUrl || '').split('\n').map(u => u.trim()).filter(Boolean);
+  if (urls.length) urls.forEach(teAddUrl);
+  // always start with one empty row if none
+  if (!urls.length) teAddUrl();
+
+  // Student chips
+  ['1','2','3'].forEach(g => teSetStudentChips(g, task?.[`p${g}`] || ''));
+
+  // Title & confirm text
+  document.getElementById('te-modal-title').textContent = isNew ? '일정 추가' : '일정 수정';
   document.getElementById('te-confirm-btn').textContent = isNew ? '추가' : '저장';
 
-  overlay.style.display = 'flex';
-  setTimeout(() => document.getElementById('te-period').focus(), 50);
+  // Load students into selects
+  teLoadStudents().then(students => tePopulateSelects(students));
 
+  overlay.style.display = 'flex';
+
+  // Wire buttons (clone to reset listeners)
   const confirmBtn = document.getElementById('te-confirm-btn');
   const cancelBtn  = document.getElementById('te-cancel-btn');
-
   const newConfirm = confirmBtn.cloneNode(true);
   confirmBtn.parentNode.replaceChild(newConfirm, confirmBtn);
   const newCancel = cancelBtn.cloneNode(true);
@@ -1198,19 +1345,20 @@ function openTaskEditModal(task, dateKey) {
   function closeTeModal() { overlay.style.display = 'none'; }
 
   newConfirm.addEventListener('click', async () => {
-    const periodVal = document.getElementById('te-period').value.trim();
-    if (!periodVal) { showToast('교시/방송시간을 입력하세요.', 'warn'); return; }
+    const chosenDate = document.getElementById('te-date').value;
+    if (!chosenDate) { showToast('날짜를 선택하세요.', 'warn'); return; }
+    const periodVal = document.getElementById('te-period').value;
     const newTask = {
-      id: task ? task.id : ('task_' + dateKey + '_' + periodVal.replace(/\s/g,'')),
+      id: task ? task.id : ('task_' + chosenDate + '_' + periodVal.replace(/\s/g,'')),
       period: periodVal,
-      p3: document.getElementById('te-p3').value.trim(),
-      p2: document.getElementById('te-p2').value.trim(),
-      p1: document.getElementById('te-p1').value.trim(),
-      rawVideoUrl: document.getElementById('te-url').value.trim(),
+      p3: teGetStudentNames('3'),
+      p2: teGetStudentNames('2'),
+      p1: teGetStudentNames('1'),
+      rawVideoUrl: teGetUrls(),
       notice: document.getElementById('te-notice').value.trim(),
     };
     closeTeModal();
-    await saveTaskEdit(dateKey, newTask, isNew);
+    await saveTaskEdit(chosenDate, newTask, isNew);
   });
   newCancel.addEventListener('click', closeTeModal);
   overlay.addEventListener('click', e => { if (e.target === overlay) closeTeModal(); }, { once: true });
