@@ -1126,8 +1126,8 @@ async function openPicker(grade, fieldId) {
   list.innerHTML = '<span style="color:var(--text-3);font-size:13px;">로딩 중...</span>';
   document.getElementById('picker-modal').classList.add('open');
   try {
-    const snap = await db.collection('students').where('grade','==',grade).orderBy('name').get();
-    const students = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    const snap = await db.collection('students').where('grade','==',grade).get();
+    const students = snap.docs.map(d => ({ id: d.id, ...d.data() })).sort((a,b) => a.name.localeCompare(b.name, 'ko'));
     if (students.length === 0) {
       list.innerHTML = '<span style="color:var(--text-3);font-size:13px;">등록된 학생이 없습니다</span>';
       return;
@@ -1159,11 +1159,10 @@ function loadStudents() {
     if (studentUnsubs[grade]) return; // already listening
     studentUnsubs[grade] = db.collection('students')
       .where('grade','==',grade)
-      .orderBy('name')
       .onSnapshot(snap => {
         const chips = document.getElementById(`chips-${grade}`);
         if (!chips) return;
-        const docs = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+        const docs = snap.docs.map(d => ({ id: d.id, ...d.data() })).sort((a,b) => a.name.localeCompare(b.name, 'ko'));
         chips.innerHTML = docs.map(s =>
           `<div class="chip">
             ${s.name}

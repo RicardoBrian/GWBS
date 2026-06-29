@@ -1316,12 +1316,13 @@ let teStudentsCache = null; // { '1': [...names], '2': [...], '3': [...] }
 async function teLoadStudents() {
   if (teStudentsCache) return teStudentsCache;
   try {
-    const snap = await db.collection('students').orderBy('name').get();
+    const snap = await db.collection('students').get();
     teStudentsCache = { '1': [], '2': [], '3': [] };
     snap.forEach(d => {
       const g = String(d.data().grade);
       if (teStudentsCache[g]) teStudentsCache[g].push(d.data().name);
     });
+    ['1','2','3'].forEach(g => teStudentsCache[g].sort((a,b) => a.localeCompare(b, 'ko')));
   } catch(e) {
     teStudentsCache = { '1': [], '2': [], '3': [] };
   }
