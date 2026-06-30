@@ -1528,10 +1528,12 @@ async function loadBroadcastDates() {
       if (!nextBroadcastDate && doc.id >= todayStr) nextBroadcastDate = doc.id;
     });
     updateClock();
-    if (autoSelect) {
-      sel.value = autoSelect;
-      currentDateKey = autoSelect;
-      loadBroadcastForDate(autoSelect);
+    // Auto-select today if available, otherwise nearest upcoming broadcast
+    const best = autoSelect || nextBroadcastDate;
+    if (best) {
+      sel.value = best;
+      currentDateKey = best;
+      loadBroadcastForDate(best);
     }
     if (snap.empty) showToast('등록된 방송 일정이 없습니다.', 'info');
   } catch (e) {
