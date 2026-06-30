@@ -734,7 +734,7 @@ body.dark #te-inner { background: rgba(22,24,40,0.97) !important; }
 }
 
 /* ─── TAB 3: Manuals ──────────────────────────────────────────── */
-.manual-groups { display: flex; flex-direction: column; gap: 36px; }
+.manual-groups { display: flex; flex-direction: column; gap: 16px; }
 
 .manual-group-header { margin-bottom: 16px; }
 
@@ -832,6 +832,65 @@ body.dark #te-inner { background: rgba(22,24,40,0.97) !important; }
   justify-content: flex-end;
   margin-top: 18px;
 }
+
+/* ─── Accordion (manuals) ────────────────────────────────── */
+.accordion-section {
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+  backdrop-filter: var(--blur);
+  -webkit-backdrop-filter: var(--blur);
+  box-shadow: var(--shadow-sm);
+  overflow: hidden;
+}
+.accordion-header {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 18px 22px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  text-align: left;
+  color: var(--text);
+  font-family: inherit;
+  gap: 12px;
+  transition: background var(--dur) var(--ease);
+}
+.accordion-header:hover { background: var(--highlight); }
+.accordion-title { font-size: 16px; font-weight: 700; color: var(--text); }
+.accordion-desc { font-size: 13px; color: var(--text-3); margin-top: 3px; line-height: 1.4; }
+.accordion-chevron {
+  font-size: 16px; color: var(--text-3); flex-shrink: 0;
+  transition: transform 0.28s var(--ease);
+  display: inline-block;
+}
+.accordion-section.open .accordion-chevron { transform: rotate(180deg); }
+.accordion-body {
+  max-height: 0;
+  overflow: hidden;
+  transition: max-height 0.38s var(--ease);
+  padding: 0 20px;
+}
+.accordion-section.open .accordion-body {
+  max-height: 4000px;
+  padding: 4px 20px 22px;
+}
+.accordion-divider { height: 1px; background: var(--hairline); margin: 0 0 18px; }
+
+/* ─── Manual step boxes ──────────────────────────────────── */
+.manual-steps { display: flex; flex-direction: column; gap: 7px; margin-top: 10px; }
+.manual-step-box {
+  padding: 9px 13px;
+  background: var(--surface-2);
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius-sm);
+  font-size: 13px;
+  color: var(--text-2);
+  line-height: 1.55;
+}
+.manual-sub-title { font-size: 14px; font-weight: 700; color: var(--text); line-height: 1.4; }
 
 /* ─── Reduced motion ──────────────────────────────────────────── */
 @media (prefers-reduced-motion: reduce) {
@@ -1853,65 +1912,90 @@ let manualsLoaded = false;
 async function loadManuals() {
   manualsLoaded = true;
   const container = document.getElementById('manual-groups');
+  container.innerHTML = '<div class="loading-row"><span class="spinner"></span> 매뉴얼을 불러오는 중…</div>';
   try {
     const snap = await db.collection('manuals').orderBy('createdAt', 'asc').get();
     if (snap.empty) {
       container.innerHTML = '<div class="empty-state"><span class="empty-icon">📖</span>등록된 매뉴얼이 없습니다.</div>';
       return;
     }
-
-    // Group by mainTitle (preserve insertion order)
-    const groups = new Map();
+    container.innerHTML = '';
+    let isFirst = true;
     snap.forEach(doc => {
       const d = doc.data();
-      const title = d.mainTitle || '기타';
-      if (!groups.has(title)) groups.set(title, { mainDesc: d.mainDesc || '', items: [] });
-      groups.get(title).items.push(d);
-    });
-
-    container.innerHTML = '';
-    const frag = document.createDocumentFragment();
-    groups.forEach((group, mainTitle) => {
-      const section = document.createElement('section');
-
-      const header = document.createElement('div');
-      header.className = 'manual-group-header';
-      const h2 = document.createElement('h2');
-      h2.className = 'manual-group-title';
-      h2.textContent = mainTitle;
-      header.appendChild(h2);
-      if (group.mainDesc) {
-        const desc = document.createElement('p');
-        desc.className = 'manual-group-desc';
-        desc.textContent = group.mainDesc;
-        header.appendChild(desc);
+      // Normalise: support both new subItems array and legacy subTitle/contents
+      let subItems = d.subItems && d.subItems.length ? d.subItems : [];
+      if (!subItems.length && (d.subTitle || d.contents)) {
+        subItems = [{ subTitle: d.subTitle || '', steps: (d.contents || '').split('\n').filter(Boolean) }];
       }
-      section.appendChild(header);
-
-      const grid = document.createElement('div');
-      grid.className = 'manual-items-grid';
-      group.items.forEach(item => {
-        const card = document.createElement('div');
-        card.className = 'card manual-item';
-        const h3 = document.createElement('h3');
-        h3.className = 'manual-sub-title';
-        h3.textContent = item.subTitle || '';
-        const p = document.createElement('p');
-        p.className = 'manual-contents';
-        p.textContent = item.contents || '';
-        card.appendChild(h3);
-        card.appendChild(p);
-        grid.appendChild(card);
-      });
-      section.appendChild(grid);
-      frag.appendChild(section);
+      const section = buildAccordionSection(d.mainTitle || '기타', d.mainDesc || '', subItems, isFirst);
+      isFirst = false;
+      container.appendChild(section);
     });
-    container.appendChild(frag);
-  } catch (e) {
+  } catch(e) {
     console.error(e);
     showToast('매뉴얼 로드 오류: ' + e.message, 'error');
     container.innerHTML = '<div class="empty-state"><span class="empty-icon">⚠️</span>매뉴얼을 불러오지 못했습니다.</div>';
   }
+}
+
+function buildAccordionSection(mainTitle, mainDesc, subItems, open) {
+  const section = document.createElement('div');
+  section.className = 'accordion-section' + (open ? ' open' : '');
+
+  const header = document.createElement('button');
+  header.className = 'accordion-header';
+  header.setAttribute('aria-expanded', open ? 'true' : 'false');
+  header.innerHTML = `
+    <div>
+      <div class="accordion-title">${escHtml(mainTitle)}</div>
+      ${mainDesc ? `<div class="accordion-desc">${escHtml(mainDesc)}</div>` : ''}
+    </div>
+    <span class="accordion-chevron">▾</span>`;
+  header.addEventListener('click', () => {
+    const isOpen = section.classList.toggle('open');
+    header.setAttribute('aria-expanded', isOpen ? 'true' : 'false');
+  });
+
+  const body = document.createElement('div');
+  body.className = 'accordion-body';
+
+  if (subItems.length) {
+    const divider = document.createElement('div');
+    divider.className = 'accordion-divider';
+    body.appendChild(divider);
+
+    const grid = document.createElement('div');
+    grid.className = 'manual-items-grid';
+
+    subItems.forEach(item => {
+      const card = document.createElement('div');
+      card.className = 'card manual-item';
+
+      const h3 = document.createElement('h3');
+      h3.className = 'manual-sub-title';
+      h3.textContent = item.subTitle || '';
+      card.appendChild(h3);
+
+      if (item.steps && item.steps.length) {
+        const stepsWrap = document.createElement('div');
+        stepsWrap.className = 'manual-steps';
+        item.steps.filter(Boolean).forEach(step => {
+          const box = document.createElement('div');
+          box.className = 'manual-step-box';
+          box.textContent = step;
+          stepsWrap.appendChild(box);
+        });
+        card.appendChild(stepsWrap);
+      }
+      grid.appendChild(card);
+    });
+    body.appendChild(grid);
+  }
+
+  section.appendChild(header);
+  section.appendChild(body);
+  return section;
 }
 
 /* ─── Modal ───────────────────────────────────────────────────── */

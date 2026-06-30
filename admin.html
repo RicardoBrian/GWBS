@@ -832,12 +832,11 @@
             <textarea class="inp" id="m-main-desc" placeholder="대주제에 대한 간단한 설명" rows="2"></textarea>
           </div>
           <div>
-            <label class="lbl">소주제</label>
-            <input class="inp" type="text" id="m-sub-title" placeholder="예: 마이크 연결 방법">
-          </div>
-          <div>
-            <label class="lbl">내용</label>
-            <textarea class="inp" id="m-contents" placeholder="업무 내용을 자세히 입력하세요" rows="6"></textarea>
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;">
+              <label class="lbl" style="margin-bottom:0;">소주제</label>
+              <button class="btn ghost sm" type="button" onclick="addSubItem({})">＋ 소주제 추가</button>
+            </div>
+            <div id="m-subitems" style="display:flex;flex-direction:column;gap:10px;"></div>
           </div>
           <div class="form-actions">
             <button class="btn accent" onclick="saveManual()">저장</button>
@@ -946,7 +945,7 @@ function loadSection(name) {
     case 'students': loadStudents(); break;
     case 'attendance': loadAttendance(); break;
     case 'songs': loadSongs(); break;
-    case 'manuals': loadManuals(); break;
+    case 'manuals': loadManuals(); if (!selectedManualId) { document.getElementById('m-subitems').innerHTML=''; addSubItem({}); } break;
   }
 }
 
@@ -1336,11 +1335,12 @@ async function resetAllSongs() {
 // ── Manuals ───────────────────────────────────────────────
 let manualDocs = [];
 let selectedManualId = null;
+let _subItemCtr = 0;
 
 function loadManuals() {
   if (sectionUnsubscribers['manuals']) return;
   sectionUnsubscribers['manuals'] = db.collection('manuals')
-    .orderBy('createdAt','desc')
+    .orderBy('createdAt', 'asc')
     .onSnapshot(snap => {
       manualDocs = snap.docs.map(d => ({ id: d.id, ...d.data() }));
       renderManualList();
@@ -1349,15 +1349,53 @@ function loadManuals() {
 
 function renderManualList() {
   const el = document.getElementById('manual-list');
-  if (!manualDocs.length) {
-    el.innerHTML = '<div class="empty-state">매뉴얼이 없습니다</div>';
-    return;
-  }
+  if (!manualDocs.length) { el.innerHTML = '<div class="empty-state">매뉴얼이 없습니다</div>'; return; }
   el.innerHTML = manualDocs.map(m => `
     <div class="list-item ${selectedManualId === m.id ? 'active' : ''}" onclick="selectManual('${m.id}')">
       <div class="list-item-title">${escHtml(m.mainTitle || '(제목 없음)')}</div>
-      <div class="list-item-sub">${escHtml(m.subTitle || '')}</div>
+      <div class="list-item-sub">${escHtml((m.subItems||[]).map(s=>s.subTitle).filter(Boolean).join(' · '))}</div>
     </div>`).join('');
+}
+
+function addSubItem(data) {
+  data = data || {};
+  const container = document.getElementById('m-subitems');
+  const block = document.createElement('div');
+  block.className = 'subitem-block';
+  block.style.cssText = 'background:var(--surface-2);border:1px solid var(--border);border-radius:var(--radius-sm);padding:14px;';
+  block.innerHTML = `
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;">
+      <input class="inp" type="text" placeholder="소주제 제목" style="flex:1;" value="${escHtml(data.subTitle||'')}">
+      <button class="btn danger sm" type="button">✕</button>
+    </div>
+    <div class="steps-list" style="display:flex;flex-direction:column;gap:6px;"></div>
+    <button class="btn ghost sm" type="button" style="margin-top:8px;font-size:12px;">＋ 단계 추가</button>
+  `;
+  block.querySelector('.btn.danger').addEventListener('click', () => block.remove());
+  const stepsList = block.querySelector('.steps-list');
+  block.querySelector('.btn.ghost').addEventListener('click', () => addStep(stepsList, ''));
+  (data.steps && data.steps.length ? data.steps : ['']).forEach(s => addStep(stepsList, s));
+  container.appendChild(block);
+}
+
+function addStep(stepsList, value) {
+  const row = document.createElement('div');
+  row.className = 'step-row';
+  row.style.cssText = 'display:flex;gap:6px;align-items:center;';
+  row.innerHTML = `
+    <input class="inp" type="text" placeholder="단계 내용을 입력하세요" style="flex:1;border-radius:var(--radius-sm);" value="${escHtml(value||'')}">
+    <button type="button" class="btn ghost sm" style="flex-shrink:0;padding:6px 10px;">✕</button>
+  `;
+  row.querySelector('button').addEventListener('click', () => row.remove());
+  stepsList.appendChild(row);
+}
+
+function getSubItemsFromForm() {
+  return [...document.querySelectorAll('.subitem-block')].map(block => {
+    const subTitle = block.querySelector('input[type="text"]').value.trim();
+    const steps = [...block.querySelectorAll('.step-row input')].map(i => i.value.trim()).filter(Boolean);
+    return { subTitle, steps };
+  }).filter(si => si.subTitle || si.steps.length);
 }
 
 function selectManual(id) {
@@ -1366,9 +1404,16 @@ function selectManual(id) {
   if (!m) return;
   document.getElementById('m-main-title').value = m.mainTitle || '';
   document.getElementById('m-main-desc').value = m.mainDesc || '';
-  document.getElementById('m-sub-title').value = m.subTitle || '';
-  document.getElementById('m-contents').value = m.contents || '';
   document.getElementById('m-del-btn').style.display = '';
+  document.getElementById('m-subitems').innerHTML = '';
+  if (m.subItems && m.subItems.length) {
+    m.subItems.forEach(si => addSubItem(si));
+  } else if (m.subTitle || m.contents) {
+    // legacy format migration
+    addSubItem({ subTitle: m.subTitle || '', steps: (m.contents || '').split('\n').filter(Boolean) });
+  } else {
+    addSubItem({});
+  }
   renderManualList();
 }
 
@@ -1376,29 +1421,26 @@ function clearManualForm() {
   selectedManualId = null;
   document.getElementById('m-main-title').value = '';
   document.getElementById('m-main-desc').value = '';
-  document.getElementById('m-sub-title').value = '';
-  document.getElementById('m-contents').value = '';
+  document.getElementById('m-subitems').innerHTML = '';
   document.getElementById('m-del-btn').style.display = 'none';
+  addSubItem({});
   renderManualList();
 }
 
 async function saveManual() {
   const mainTitle = document.getElementById('m-main-title').value.trim();
-  const mainDesc = document.getElementById('m-main-desc').value.trim();
-  const subTitle = document.getElementById('m-sub-title').value.trim();
-  const contents = document.getElementById('m-contents').value.trim();
+  const mainDesc  = document.getElementById('m-main-desc').value.trim();
   if (!mainTitle) { showToast('대주제를 입력해 주세요', 'warn'); return; }
+  const subItems = getSubItemsFromForm();
   try {
     if (selectedManualId) {
-      await db.collection('manuals').doc(selectedManualId).update({ mainTitle, mainDesc, subTitle, contents });
+      await db.collection('manuals').doc(selectedManualId).update({ mainTitle, mainDesc, subItems });
       showToast('수정되었습니다', 'success');
     } else {
-      await db.collection('manuals').add({ mainTitle, mainDesc, subTitle, contents, createdAt: firebase.firestore.FieldValue.serverTimestamp() });
+      await db.collection('manuals').add({ mainTitle, mainDesc, subItems, createdAt: firebase.firestore.FieldValue.serverTimestamp() });
       showToast('저장되었습니다', 'success');
     }
-  } catch(e) {
-    showToast('저장 실패: ' + e.message, 'error');
-  }
+  } catch(e) { showToast('저장 실패: ' + e.message, 'error'); }
 }
 
 async function deleteManual() {
@@ -1409,9 +1451,7 @@ async function deleteManual() {
     await db.collection('manuals').doc(selectedManualId).delete();
     showToast('삭제되었습니다', 'success');
     clearManualForm();
-  } catch(e) {
-    showToast('삭제 실패: ' + e.message, 'error');
-  }
+  } catch(e) { showToast('삭제 실패: ' + e.message, 'error'); }
 }
 
 // ── Utilities ─────────────────────────────────────────────
