@@ -734,47 +734,76 @@ body.dark #te-inner { background: rgba(22,24,40,0.97) !important; }
 }
 
 /* ─── TAB 3: Manuals ──────────────────────────────────────────── */
-.manual-groups { display: flex; flex-direction: column; gap: 16px; }
+.manual-groups { display: flex; flex-direction: column; gap: 12px; }
 
-.manual-group-header { margin-bottom: 16px; }
-
-.manual-group-title {
-  font-size: 19px;
-  font-weight: 700;
+/* Accordion */
+.accordion-section {
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+  backdrop-filter: var(--blur);
+  -webkit-backdrop-filter: var(--blur);
+  box-shadow: var(--shadow-sm);
+  overflow: hidden;
+}
+.accordion-header {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 18px 22px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  text-align: left;
   color: var(--text);
-  margin-bottom: 4px;
-  text-wrap: balance;
+  font-family: inherit;
+  gap: 12px;
+  transition: background var(--dur) var(--ease);
 }
-
-.manual-group-desc {
-  font-size: 13px;
-  color: var(--text-2);
-  line-height: 1.5;
+.accordion-header:hover { background: var(--highlight); }
+.accordion-title { font-size: 16px; font-weight: 700; color: var(--text); }
+.accordion-desc { font-size: 13px; color: var(--text-3); margin-top: 3px; line-height: 1.4; }
+.accordion-chevron {
+  font-size: 16px; color: var(--text-3); flex-shrink: 0;
+  transition: transform 0.28s var(--ease);
+  display: inline-block;
 }
+.accordion-section.open .accordion-chevron { transform: rotate(180deg); }
+.accordion-body {
+  max-height: 0;
+  overflow: hidden;
+  transition: max-height 0.38s var(--ease);
+  padding: 0 20px;
+}
+.accordion-section.open .accordion-body {
+  max-height: 4000px;
+  padding: 4px 20px 22px;
+}
+.accordion-divider { height: 1px; background: var(--hairline); margin: 0 0 18px; }
 
+/* Grid inside accordion */
 .manual-items-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
   gap: 12px;
 }
-
-.manual-item { padding: 18px 20px; }
-
+.manual-item { padding: 16px 18px; }
 .manual-sub-title {
-  font-size: 14px;
-  font-weight: 700;
-  color: var(--text);
-  margin-bottom: 8px;
-  line-height: 1.4;
-  text-wrap: balance;
+  font-size: 14px; font-weight: 700; color: var(--text);
+  line-height: 1.4; margin-bottom: 0;
 }
 
-.manual-contents {
+/* Step boxes */
+.manual-steps { display: flex; flex-direction: column; gap: 6px; margin-top: 10px; }
+.manual-step-box {
+  padding: 8px 12px;
+  background: var(--surface-2);
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius-sm);
   font-size: 13px;
   color: var(--text-2);
-  line-height: 1.75;
-  white-space: pre-wrap;
-  word-break: break-word;
+  line-height: 1.55;
 }
 
 /* ─── Modal ───────────────────────────────────────────────────── */
@@ -832,65 +861,6 @@ body.dark #te-inner { background: rgba(22,24,40,0.97) !important; }
   justify-content: flex-end;
   margin-top: 18px;
 }
-
-/* ─── Accordion (manuals) ────────────────────────────────── */
-.accordion-section {
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  background: var(--surface);
-  backdrop-filter: var(--blur);
-  -webkit-backdrop-filter: var(--blur);
-  box-shadow: var(--shadow-sm);
-  overflow: hidden;
-}
-.accordion-header {
-  width: 100%;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 18px 22px;
-  background: none;
-  border: none;
-  cursor: pointer;
-  text-align: left;
-  color: var(--text);
-  font-family: inherit;
-  gap: 12px;
-  transition: background var(--dur) var(--ease);
-}
-.accordion-header:hover { background: var(--highlight); }
-.accordion-title { font-size: 16px; font-weight: 700; color: var(--text); }
-.accordion-desc { font-size: 13px; color: var(--text-3); margin-top: 3px; line-height: 1.4; }
-.accordion-chevron {
-  font-size: 16px; color: var(--text-3); flex-shrink: 0;
-  transition: transform 0.28s var(--ease);
-  display: inline-block;
-}
-.accordion-section.open .accordion-chevron { transform: rotate(180deg); }
-.accordion-body {
-  max-height: 0;
-  overflow: hidden;
-  transition: max-height 0.38s var(--ease);
-  padding: 0 20px;
-}
-.accordion-section.open .accordion-body {
-  max-height: 4000px;
-  padding: 4px 20px 22px;
-}
-.accordion-divider { height: 1px; background: var(--hairline); margin: 0 0 18px; }
-
-/* ─── Manual step boxes ──────────────────────────────────── */
-.manual-steps { display: flex; flex-direction: column; gap: 7px; margin-top: 10px; }
-.manual-step-box {
-  padding: 9px 13px;
-  background: var(--surface-2);
-  border: 1px solid var(--hairline);
-  border-radius: var(--radius-sm);
-  font-size: 13px;
-  color: var(--text-2);
-  line-height: 1.55;
-}
-.manual-sub-title { font-size: 14px; font-weight: 700; color: var(--text); line-height: 1.4; }
 
 /* ─── Reduced motion ──────────────────────────────────────────── */
 @media (prefers-reduced-motion: reduce) {
@@ -1923,16 +1893,15 @@ async function loadManuals() {
     let isFirst = true;
     snap.forEach(doc => {
       const d = doc.data();
-      // Normalise: support both new subItems array and legacy subTitle/contents
-      let subItems = d.subItems && d.subItems.length ? d.subItems : [];
+      // Support new subItems array and legacy subTitle/contents string
+      let subItems = (d.subItems && d.subItems.length) ? d.subItems : [];
       if (!subItems.length && (d.subTitle || d.contents)) {
         subItems = [{ subTitle: d.subTitle || '', steps: (d.contents || '').split('\n').filter(Boolean) }];
       }
-      const section = buildAccordionSection(d.mainTitle || '기타', d.mainDesc || '', subItems, isFirst);
+      container.appendChild(buildAccordionSection(d.mainTitle || '기타', d.mainDesc || '', subItems, isFirst));
       isFirst = false;
-      container.appendChild(section);
     });
-  } catch(e) {
+  } catch (e) {
     console.error(e);
     showToast('매뉴얼 로드 오류: ' + e.message, 'error');
     container.innerHTML = '<div class="empty-state"><span class="empty-icon">⚠️</span>매뉴얼을 불러오지 못했습니다.</div>';
@@ -1954,7 +1923,7 @@ function buildAccordionSection(mainTitle, mainDesc, subItems, open) {
     <span class="accordion-chevron">▾</span>`;
   header.addEventListener('click', () => {
     const isOpen = section.classList.toggle('open');
-    header.setAttribute('aria-expanded', isOpen ? 'true' : 'false');
+    header.setAttribute('aria-expanded', String(isOpen));
   });
 
   const body = document.createElement('div');
@@ -1967,7 +1936,6 @@ function buildAccordionSection(mainTitle, mainDesc, subItems, open) {
 
     const grid = document.createElement('div');
     grid.className = 'manual-items-grid';
-
     subItems.forEach(item => {
       const card = document.createElement('div');
       card.className = 'card manual-item';
@@ -1977,16 +1945,17 @@ function buildAccordionSection(mainTitle, mainDesc, subItems, open) {
       h3.textContent = item.subTitle || '';
       card.appendChild(h3);
 
-      if (item.steps && item.steps.length) {
-        const stepsWrap = document.createElement('div');
-        stepsWrap.className = 'manual-steps';
-        item.steps.filter(Boolean).forEach(step => {
+      const steps = (item.steps || []).filter(Boolean);
+      if (steps.length) {
+        const wrap = document.createElement('div');
+        wrap.className = 'manual-steps';
+        steps.forEach(step => {
           const box = document.createElement('div');
           box.className = 'manual-step-box';
           box.textContent = step;
-          stepsWrap.appendChild(box);
+          wrap.appendChild(box);
         });
-        card.appendChild(stepsWrap);
+        card.appendChild(wrap);
       }
       grid.appendChild(card);
     });
