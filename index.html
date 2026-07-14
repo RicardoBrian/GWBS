@@ -40,6 +40,9 @@
   --radius-pill: 980px;
   --ease: cubic-bezier(0.4, 0, 0.2, 1);
   --dur: 200ms;
+  --cta: #1d1d1f;
+  --cta-text: #ffffff;
+  --icon-btn-bg-hover: rgba(0,0,0,0.06);
 }
 
 body.dark {
@@ -60,6 +63,9 @@ body.dark {
   --shadow: 0 8px 32px rgba(0,0,0,0.32), 0 2px 8px rgba(0,0,0,0.20);
   --shadow-sm: 0 2px 8px rgba(0,0,0,0.24);
   --shadow-md: 0 12px 40px rgba(0,0,0,0.44);
+  --cta: #f5f5f7;
+  --cta-text: #0d0f1a;
+  --icon-btn-bg-hover: rgba(255,255,255,0.10);
 }
 
 /* ─── Reset & base ───────────────────────────────────────────── */
@@ -160,6 +166,32 @@ body.dark::before {
 .btn.danger:hover { background: rgba(255,69,58,0.18); transform: translateY(-1px); }
 
 .btn.sm { padding: 5px 13px; font-size: 12px; }
+
+/* Primary CTA — neutral dark */
+.btn.primary {
+  background: var(--cta);
+  border-color: transparent;
+  color: var(--cta-text);
+}
+.btn.primary:hover { opacity: 0.82; transform: translateY(-1px); }
+
+/* Icon-only circle button */
+.icon-btn {
+  width: 32px; height: 32px;
+  border-radius: 50%;
+  border: none;
+  background: transparent;
+  color: var(--text-2);
+  cursor: pointer;
+  display: inline-flex; align-items: center; justify-content: center;
+  transition: background var(--dur) var(--ease), color var(--dur) var(--ease);
+  flex-shrink: 0;
+  padding: 0;
+}
+.icon-btn:hover { background: var(--icon-btn-bg-hover); color: var(--text); }
+.icon-btn.danger { color: var(--danger); }
+.icon-btn.danger:hover { background: rgba(255,69,58,0.10); }
+.icon-btn svg { width: 17px; height: 17px; }
 
 /* ─── Input ───────────────────────────────────────────────────── */
 .inp {
@@ -346,10 +378,10 @@ select.inp { cursor: pointer; }
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 18px;
   transition: all var(--dur) var(--ease);
   text-decoration: none;
   flex-shrink: 0;
+  color: var(--text-2);
 }
 .admin-link:hover { background: var(--highlight); transform: scale(1.08); }
 .admin-link:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
@@ -478,7 +510,8 @@ body.dark #te-inner { background: rgba(22,24,40,0.97) !important; }
   font-size: 14px;
   line-height: 1.8;
 }
-.empty-icon { font-size: 34px; margin-bottom: 10px; display: block; }
+.empty-icon { display: block; color: var(--text-3); margin-bottom: 12px; line-height: 1; }
+.empty-icon svg { display: block; }
 
 .loading-row {
   display: flex;
@@ -765,9 +798,9 @@ body.dark #te-inner { background: rgba(22,24,40,0.97) !important; }
 .accordion-title { font-size: 16px; font-weight: 700; color: var(--text); }
 .accordion-desc { font-size: 13px; color: var(--text-3); margin-top: 3px; line-height: 1.4; }
 .accordion-chevron {
-  font-size: 16px; color: var(--text-3); flex-shrink: 0;
+  color: var(--text-3); flex-shrink: 0;
   transition: transform 0.28s var(--ease);
-  display: inline-block;
+  display: block;
 }
 .accordion-section.open .accordion-chevron { transform: rotate(180deg); }
 .accordion-body {
@@ -903,7 +936,7 @@ body.dark #te-inner { background: rgba(22,24,40,0.97) !important; }
   .nav-date-text { display: none !important; }
   .sched-btn-text { display: none; }
   .tab-btn { padding: 5px 8px; font-size: 11.5px; }
-  .admin-link { width: 32px; height: 32px; font-size: 16px; }
+  .admin-link { width: 32px; height: 32px; }
   .task-header { padding: 10px 14px; }
   .task-body { padding: 12px 14px; gap: 10px; }
   #main { padding: 12px 10px 64px; }
@@ -919,6 +952,25 @@ body.dark #te-inner { background: rgba(22,24,40,0.97) !important; }
 </style>
 </head>
 <body>
+
+<svg xmlns="http://www.w3.org/2000/svg" style="display:none" aria-hidden="true">
+  <symbol id="ic-plus" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></symbol>
+  <symbol id="ic-close" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></symbol>
+  <symbol id="ic-chevron-down" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></symbol>
+  <symbol id="ic-play" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 3 19 12 5 21 5 3"/></symbol>
+  <symbol id="ic-settings" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></symbol>
+  <symbol id="ic-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></symbol>
+  <symbol id="ic-refresh" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></symbol>
+  <symbol id="ic-users" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></symbol>
+  <symbol id="ic-calendar" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></symbol>
+  <symbol id="ic-music" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></symbol>
+  <symbol id="ic-book" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></symbol>
+  <symbol id="ic-check-circle" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></symbol>
+  <symbol id="ic-chart" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></symbol>
+  <symbol id="ic-alert" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></symbol>
+  <symbol id="ic-radio" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.73 4.67L21.3 3l-3.95-1.84a4 4 0 0 0-5.12 1.69L5 17"/><rect x="1" y="11" width="22" height="11" rx="2" ry="2"/><circle cx="11" cy="17" r="1"/><line x1="17" y1="14" x2="17" y2="20"/></symbol>
+  <symbol id="ic-task" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></symbol>
+</svg>
 
 <!-- Toast container -->
 <div id="toast-container" aria-live="polite" aria-atomic="false"></div>
@@ -947,8 +999,8 @@ body.dark #te-inner { background: rgba(22,24,40,0.97) !important; }
       <span class="nav-date-text" id="nav-date-text"></span>
       <span class="nav-clock" id="nav-clock"></span>
     </div>
-    <button class="btn accent sm" id="sched-edit-btn" onclick="toggleSchedEdit()" style="white-space:nowrap;">＋ <span class="sched-btn-text">일정 추가</span></button>
-    <a class="admin-link" href="admin.html" aria-label="관리자 페이지">⚙️</a>
+    <button class="btn primary sm" id="sched-edit-btn" onclick="toggleSchedEdit()" style="white-space:nowrap;"><svg width="14" height="14" style="flex-shrink:0"><use href="#ic-plus"/></svg> <span class="sched-btn-text">일정 추가</span></button>
+    <a class="admin-link" href="admin.html" aria-label="관리자 페이지"><svg width="18" height="18"><use href="#ic-settings"/></svg></a>
   </div>
 </nav>
 
@@ -966,14 +1018,14 @@ body.dark #te-inner { background: rgba(22,24,40,0.97) !important; }
     </div>
     <div id="sched-edit-toolbar" style="display:none;padding:10px 0 4px;">
       <div style="background:var(--glass);backdrop-filter:var(--blur);-webkit-backdrop-filter:var(--blur);border:1px solid var(--border);border-radius:var(--r);padding:12px 16px;display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
-        <span style="font-size:0.85rem;color:var(--accent);font-weight:600;">✏️ 방송 관리 모드</span>
-        <button class="btn accent sm" style="padding:6px 14px;font-size:0.82rem;" onclick="openAddScheduleModal()">＋ 일정 추가</button>
+        <span style="font-size:0.85rem;color:var(--accent);font-weight:600;">방송 관리 모드</span>
+        <button class="btn primary sm" style="padding:6px 14px;font-size:0.82rem;" onclick="openAddScheduleModal()"><svg width="13" height="13"><use href="#ic-plus"/></svg> 일정 추가</button>
         <button class="btn danger sm" style="padding:6px 14px;font-size:0.82rem;" onclick="exitSchedEdit()">관리 종료</button>
       </div>
     </div>
     <div class="task-list" id="task-list">
       <div class="empty-state">
-        <span class="empty-icon">📻</span>
+        <span class="empty-icon"><svg width="40" height="40"><use href="#ic-radio"/></svg></span>
         날짜를 선택하면 방송 일정이 표시됩니다.
       </div>
     </div>
@@ -984,8 +1036,8 @@ body.dark #te-inner { background: rgba(22,24,40,0.97) !important; }
     <div class="songs-top">
       <h2 class="songs-page-title">신청곡 목록</h2>
       <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
-        <a href="request.html" style="text-decoration:none;background:var(--accent);color:#fff;border:none;padding:7px 14px;border-radius:var(--r-pill);font-size:0.82rem;font-weight:500;cursor:pointer;">＋ 신청하기</a>
-        <button class="btn ghost sm" id="playlist-btn" onclick="openYouTubePlaylist()" style="padding:6px 14px;font-size:0.82rem;">▶ 재생 목록</button>
+        <a href="request.html" class="btn primary sm" style="text-decoration:none;">신청하기</a>
+        <button class="btn ghost sm" id="playlist-btn" onclick="openYouTubePlaylist()"><svg width="13" height="13"><use href="#ic-play"/></svg> 재생 목록</button>
         <button class="btn danger sm" id="reset-songs-btn" style="padding:6px 14px;font-size:0.82rem;">전체 초기화</button>
       </div>
     </div>
@@ -1042,7 +1094,9 @@ body.dark #te-inner { background: rgba(22,24,40,0.97) !important; }
   <div style="width:100%;max-width:560px;max-height:94dvh;overflow-y:auto;padding:24px 22px 28px;border-radius:20px 20px 0 0;margin:0 auto;background:rgba(255,255,255,0.94);border:1px solid var(--border);box-shadow:0 -8px 40px rgba(0,0,0,0.15);" id="te-inner">
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:18px;">
       <h3 style="font-size:17px;font-weight:700;" id="te-modal-title">일정 추가</h3>
-      <button id="te-cancel-btn" style="background:none;border:none;font-size:20px;cursor:pointer;color:var(--text-3);padding:4px;">✕</button>
+      <button id="te-cancel-btn" class="icon-btn" style="margin-left:auto;">
+  <svg width="18" height="18"><use href="#ic-close"/></svg>
+</button>
     </div>
     <div style="display:flex;flex-direction:column;gap:14px;">
       <div style="display:grid;grid-template-columns:1fr auto;gap:10px;align-items:end;">
@@ -1072,7 +1126,7 @@ body.dark #te-inner { background: rgba(22,24,40,0.97) !important; }
       <div>
         <label class="lbl">영상 URL</label>
         <div id="te-url-list" style="display:flex;flex-direction:column;gap:8px;"></div>
-        <button type="button" onclick="teAddUrl()" class="btn ghost sm" style="margin-top:8px;font-size:12px;">＋ URL 추가</button>
+        <button type="button" onclick="teAddUrl()" class="btn ghost sm" style="margin-top:8px;font-size:12px;"><svg width="12" height="12"><use href="#ic-plus"/></svg> URL 추가</button>
       </div>
       <div>
         <label class="lbl">담당 학생 (선택)</label>
@@ -1320,7 +1374,7 @@ function toggleSchedEdit() {
     () => {
       schedEditMode = true;
       document.getElementById('sched-edit-toolbar').style.display = 'block';
-      document.getElementById('sched-edit-btn').innerHTML = '✕ <span class="sched-btn-text">관리 종료</span>';
+      document.getElementById('sched-edit-btn').innerHTML = '<svg width="14" height="14" style="flex-shrink:0"><use href="#ic-close"/></svg> <span class="sched-btn-text">관리 종료</span>';
       if (currentDateKey) loadBroadcastForDate(currentDateKey);
       openTaskEditModal(null, currentDateKey);
     },
@@ -1331,7 +1385,7 @@ function toggleSchedEdit() {
 function exitSchedEdit() {
   schedEditMode = false;
   document.getElementById('sched-edit-toolbar').style.display = 'none';
-  document.getElementById('sched-edit-btn').innerHTML = '＋ <span class="sched-btn-text">일정 추가</span>';
+  document.getElementById('sched-edit-btn').innerHTML = '<svg width="14" height="14" style="flex-shrink:0"><use href="#ic-plus"/></svg> <span class="sched-btn-text">일정 추가</span>';
   if (currentDateKey) loadBroadcastForDate(currentDateKey);
 }
 
@@ -1379,7 +1433,7 @@ function teAddStudent(grade, sel) {
   if ([...chips.querySelectorAll('.te-chip')].some(c => c.dataset.name === name)) return;
   const chip = document.createElement('span');
   chip.className = 'te-chip'; chip.dataset.name = name;
-  chip.innerHTML = `${escHtml(name)}<button type="button" onclick="this.parentElement.remove()" title="제거">✕</button>`;
+  chip.innerHTML = `${escHtml(name)}<button type="button" onclick="this.parentElement.remove()" class="icon-btn" style="width:18px;height:18px;" title="제거"><svg width="12" height="12"><use href="#ic-close"/></svg></button>`;
   chips.appendChild(chip);
 }
 
@@ -1394,7 +1448,7 @@ function teSetStudentChips(grade, csv) {
   (csv || '').split(',').map(s => s.trim()).filter(Boolean).forEach(name => {
     const chip = document.createElement('span');
     chip.className = 'te-chip'; chip.dataset.name = name;
-    chip.innerHTML = `${escHtml(name)}<button type="button" onclick="this.parentElement.remove()" title="제거">✕</button>`;
+    chip.innerHTML = `${escHtml(name)}<button type="button" onclick="this.parentElement.remove()" class="icon-btn" style="width:18px;height:18px;" title="제거"><svg width="12" height="12"><use href="#ic-close"/></svg></button>`;
     chips.appendChild(chip);
   });
 }
@@ -1404,7 +1458,7 @@ function teAddUrl(value = '') {
   const row = document.createElement('div');
   row.style.cssText = 'display:flex;gap:6px;align-items:center;';
   row.innerHTML = `<input type="url" class="inp" placeholder="https://…" value="${escHtml(value)}" style="border-radius:13px;flex:1;">
-    <button type="button" onclick="this.parentElement.remove()" class="btn ghost sm" style="flex-shrink:0;padding:6px 10px;">✕</button>`;
+    <button type="button" onclick="this.parentElement.remove()" class="icon-btn danger" style="width:28px;height:28px;flex-shrink:0;"><svg width="14" height="14"><use href="#ic-close"/></svg></button>`;
   list.appendChild(row);
 }
 
@@ -1576,7 +1630,7 @@ document.getElementById('date-select').addEventListener('change', function () {
   if (!key) {
     currentDateKey = null;
     document.getElementById('task-list').innerHTML =
-      '<div class="empty-state"><span class="empty-icon">📻</span>날짜를 선택하면 방송 일정이 표시됩니다.</div>';
+      '<div class="empty-state"><span class="empty-icon"><svg width="40" height="40"><use href="#ic-radio"/></svg></span>날짜를 선택하면 방송 일정이 표시됩니다.</div>';
     return;
   }
   currentDateKey = key;
@@ -1607,7 +1661,7 @@ async function loadBroadcastForDate(dateKey) {
 
     const tasks = docSnap.data().tasks || [];
     if (tasks.length === 0) {
-      taskList.innerHTML = '<div class="empty-state"><span class="empty-icon">📋</span>등록된 업무가 없습니다.</div>';
+      taskList.innerHTML = '<div class="empty-state"><span class="empty-icon"><svg width="40" height="40"><use href="#ic-task"/></svg></span>등록된 업무가 없습니다.</div>';
       return;
     }
 
@@ -1920,7 +1974,7 @@ function buildAccordionSection(mainTitle, mainDesc, subItems, open) {
       <div class="accordion-title">${escHtml(mainTitle)}</div>
       ${mainDesc ? `<div class="accordion-desc">${escHtml(mainDesc)}</div>` : ''}
     </div>
-    <span class="accordion-chevron">▾</span>`;
+    <svg class="accordion-chevron" width="18" height="18" style="flex-shrink:0;transition:transform 0.28s var(--ease);"><use href="#ic-chevron-down"/></svg>`;
   header.addEventListener('click', () => {
     const isOpen = section.classList.toggle('open');
     header.setAttribute('aria-expanded', String(isOpen));
