@@ -10,7 +10,8 @@
 ### 1-2. Firestore 데이터베이스 생성
 1. Firebase 콘솔 좌측 메뉴 → **빌드 > Firestore Database**
 2. **데이터베이스 만들기** 클릭
-3. **테스트 모드**로 시작 (나중에 `firestore.rules` 파일로 교체)
+3. **테스트 모드**로 시작 → 만든 직후 아래 1-5를 반드시 진행하세요.
+   (테스트 모드 규칙은 30일 뒤 만료되어 앱 전체가 멈춥니다)
 4. 위치: `asia-northeast3 (서울)` 선택
 
 ### 1-3. 웹 앱 등록 및 config 복사
@@ -19,11 +20,12 @@
 3. 앱 닉네임 입력 후 **앱 등록**
 4. 표시되는 `firebaseConfig` 코드를 복사
 
-### 1-4. index.html에 config 붙여넣기
-`index.html` 파일에서 아래 부분을 찾아 교체:
+### 1-4. fb-guard.js에 config 붙여넣기
+`fb-guard.js` 파일 맨 위의 `FB_CONFIG`를 실제 값으로 교체합니다.
+(모든 페이지가 이 설정 하나를 공유합니다.)
 
 ```javascript
-const firebaseConfig = {
+window.FB_CONFIG = {
   apiKey: "YOUR_API_KEY",          // ← 실제 값으로 교체
   authDomain: "...",
   projectId: "...",
@@ -31,29 +33,33 @@ const firebaseConfig = {
 };
 ```
 
-### 1-5. Firestore 보안 규칙 적용
+### 1-5. Firestore 보안 규칙 적용 (필수!)
+`firestore.rules`는 저장소에 있는 것만으로는 적용되지 않습니다. 반드시 게시하세요.
+
 1. Firebase 콘솔 → Firestore Database → **규칙** 탭
 2. `firestore.rules` 파일 내용을 붙여넣고 **게시**
 
----
-
-## 2. Netlify 배포
-
-### 2-1. GitHub에 코드 push
+또는 CLI로:
 ```bash
-git add .
-git commit -m "feat: firebase+netlify 웹앱 초기 설정"
-git push origin main
+firebase deploy --only firestore:rules --project gwbs-3ec22
 ```
 
-### 2-2. Netlify 배포
-1. https://netlify.com 접속 → **Add new site**
-2. **Import an existing project** → GitHub 연결
-3. 레포지토리 선택
-4. 빌드 설정:
-   - Build command: 비워두기
-   - Publish directory: `.` (루트)
-5. **Deploy site** 클릭
+> 콘솔의 "테스트 모드" 기본 규칙은 30일 뒤 모든 요청을 차단합니다.
+> 앱이 갑자기 데이터를 못 불러오면 거의 항상 이 문제입니다.
+> 자세한 내용은 [DEPLOY.md](DEPLOY.md#b-firestore-보안-규칙-배포--️-지금-앱이-안-되는-원인) 참고.
+
+---
+
+## 2. 배포 & 도메인 연결
+
+Vercel / Cloudflare Pages 배포 방법과 Cloudflare 도메인 연결 절차는
+**[DEPLOY.md](DEPLOY.md)** 에 정리해 두었습니다.
+
+```bash
+git add .
+git commit -m "설정 반영"
+git push
+```
 
 ---
 

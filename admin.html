@@ -8,6 +8,7 @@
   <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+KR:wght@300;400;500;600;700&display=swap" rel="stylesheet">
   <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore-compat.js"></script>
+  <script src="fb-guard.js"></script>
   <style>
     /* ── Design tokens ───────────────────────────────────── */
     :root {
@@ -913,16 +914,7 @@
 
 <script>
 // ── Firebase init ─────────────────────────────────────────
-const firebaseConfig = {
-  apiKey: "AIzaSyBni9HsSfoY_e9oQkW5HDAwypaEXMXQAOo",
-  authDomain: "gwbs-3ec22.firebaseapp.com",
-  projectId: "gwbs-3ec22",
-  storageBucket: "gwbs-3ec22.firebasestorage.app",
-  messagingSenderId: "589081885767",
-  appId: "1:589081885767:web:c44ad52ac51f5773ec0562"
-};
-firebase.initializeApp(firebaseConfig);
-const db = firebase.firestore();
+const db = FBGuard.init();
 
 // ── Dark mode ─────────────────────────────────────────────
 function toggleDark() {
@@ -1041,7 +1033,7 @@ async function loadDashboard() {
     document.getElementById('stat-songs').textContent = sg.size;
     document.getElementById('stat-absent').textContent = at.size;
   } catch(e) {
-    showToast('대시보드 로딩 실패: ' + e.message, 'error');
+    showToast('대시보드 로딩 실패: ' + FBGuard.message(e), 'error');
   }
 }
 
@@ -1056,7 +1048,7 @@ async function loadBroadcasts() {
     broadcastDocs = snap.docs.map(d => ({ id: d.id, ...d.data() }));
     renderBroadcastList();
   } catch(e) {
-    showToast('방송 일정 로딩 실패: ' + e.message, 'error');
+    showToast('방송 일정 로딩 실패: ' + FBGuard.message(e), 'error');
   }
 }
 
@@ -1146,7 +1138,7 @@ async function saveBroadcast() {
     await loadBroadcasts();
     document.getElementById('bc-del-btn').style.display = '';
   } catch(e) {
-    showToast('저장 실패: ' + e.message, 'error');
+    showToast('저장 실패: ' + FBGuard.message(e), 'error');
   }
 }
 
@@ -1169,7 +1161,7 @@ async function deleteBroadcast() {
     selectedBcDateKey = null;
     await loadBroadcasts();
   } catch(e) {
-    showToast('삭제 실패: ' + e.message, 'error');
+    showToast('삭제 실패: ' + FBGuard.message(e), 'error');
   }
 }
 
@@ -1230,7 +1222,7 @@ function loadStudents() {
           </div>`
         ).join('') || '<span style="color:var(--text-3);font-size:13px;">학생 없음</span>';
       }, e => {
-        showToast('학생 로딩 오류: ' + e.message, 'error');
+        showToast('학생 로딩 오류: ' + FBGuard.message(e), 'error');
       });
   });
 }
@@ -1244,7 +1236,7 @@ async function addStudent(grade) {
     inp.value = '';
     showToast(`${name} 추가됨`, 'success');
   } catch(e) {
-    showToast('추가 실패: ' + e.message, 'error');
+    showToast('추가 실패: ' + FBGuard.message(e), 'error');
   }
 }
 
@@ -1255,7 +1247,7 @@ async function deleteStudent(id) {
     await db.collection('students').doc(id).delete();
     showToast('삭제되었습니다', 'success');
   } catch(e) {
-    showToast('삭제 실패: ' + e.message, 'error');
+    showToast('삭제 실패: ' + FBGuard.message(e), 'error');
   }
 }
 
@@ -1269,7 +1261,7 @@ function loadAttendance() {
     .onSnapshot(snap => {
       attAll = snap.docs.map(d => ({ id: d.id, ...d.data() }));
       filterAttendance();
-    }, e => showToast('출결 로딩 오류: ' + e.message, 'error'));
+    }, e => showToast('출결 로딩 오류: ' + FBGuard.message(e), 'error'));
 }
 
 function filterAttendance() {
@@ -1301,7 +1293,7 @@ async function deleteAttendance(id) {
     await db.collection('attendance').doc(id).delete();
     showToast('삭제 완료', 'success');
   } catch(e) {
-    showToast('삭제 실패: ' + e.message, 'error');
+    showToast('삭제 실패: ' + FBGuard.message(e), 'error');
   }
 }
 
@@ -1313,7 +1305,7 @@ function loadSongs() {
     .onSnapshot(snap => {
       const all = snap.docs.map(d => ({ id: d.id, ...d.data() }));
       renderSongs(all);
-    }, e => showToast('신청곡 로딩 오류: ' + e.message, 'error'));
+    }, e => showToast('신청곡 로딩 오류: ' + FBGuard.message(e), 'error'));
 }
 
 function renderSongs(all) {
@@ -1358,7 +1350,7 @@ async function addSong() {
     document.getElementById('song-artist').value = '';
     showToast('신청곡 추가됨', 'success');
   } catch(e) {
-    showToast('추가 실패: ' + e.message, 'error');
+    showToast('추가 실패: ' + FBGuard.message(e), 'error');
   }
 }
 
@@ -1366,7 +1358,7 @@ async function toggleSong(id, isDone) {
   try {
     await db.collection('songs').doc(id).update({ isDone: !isDone });
   } catch(e) {
-    showToast('업데이트 실패: ' + e.message, 'error');
+    showToast('업데이트 실패: ' + FBGuard.message(e), 'error');
   }
 }
 
@@ -1377,7 +1369,7 @@ async function deleteSong(id) {
     await db.collection('songs').doc(id).delete();
     showToast('삭제되었습니다', 'success');
   } catch(e) {
-    showToast('삭제 실패: ' + e.message, 'error');
+    showToast('삭제 실패: ' + FBGuard.message(e), 'error');
   }
 }
 
@@ -1391,7 +1383,7 @@ async function resetAllSongs() {
     await batch.commit();
     showToast('전체 초기화 완료', 'success');
   } catch(e) {
-    showToast('초기화 실패: ' + e.message, 'error');
+    showToast('초기화 실패: ' + FBGuard.message(e), 'error');
   }
 }
 
@@ -1407,7 +1399,7 @@ function loadManuals() {
     .onSnapshot(snap => {
       manualDocs = snap.docs.map(d => ({ id: d.id, ...d.data() }));
       renderManualList();
-    }, e => showToast('매뉴얼 로딩 오류: ' + e.message, 'error'));
+    }, e => showToast('매뉴얼 로딩 오류: ' + FBGuard.message(e), 'error'));
 }
 
 function renderManualList() {
@@ -1507,7 +1499,7 @@ async function saveManual() {
       await db.collection('manuals').add({ mainTitle, mainDesc, subItems, createdAt: firebase.firestore.FieldValue.serverTimestamp() });
       showToast('저장되었습니다', 'success');
     }
-  } catch(e) { showToast('저장 실패: ' + e.message, 'error'); }
+  } catch(e) { showToast('저장 실패: ' + FBGuard.message(e), 'error'); }
 }
 
 async function deleteManual() {
@@ -1518,7 +1510,7 @@ async function deleteManual() {
     await db.collection('manuals').doc(selectedManualId).delete();
     showToast('삭제되었습니다', 'success');
     clearManualForm();
-  } catch(e) { showToast('삭제 실패: ' + e.message, 'error'); }
+  } catch(e) { showToast('삭제 실패: ' + FBGuard.message(e), 'error'); }
 }
 
 // ── Utilities ─────────────────────────────────────────────
@@ -1558,7 +1550,7 @@ async function saveSchedPw() {
     await db.collection('settings').doc('app').set({ schedPw: pw }, { merge: true });
     showToast('저장되었습니다', 'success');
   } catch(e) {
-    showToast('저장 실패: ' + e.message, 'error');
+    showToast('저장 실패: ' + FBGuard.message(e), 'error');
   }
 }
 

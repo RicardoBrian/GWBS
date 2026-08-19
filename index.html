@@ -10,6 +10,7 @@
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+KR:wght@400;500;600;700&display=swap" rel="stylesheet">
 <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore-compat.js"></script>
+<script src="fb-guard.js"></script>
 <style>
 /* ─── CSS custom properties ─────────────────────────────────── */
 :root {
@@ -1170,16 +1171,7 @@ body.dark #te-inner { background: rgba(22,24,40,0.97) !important; }
 
 <script>
 /* ─── Firebase ────────────────────────────────────────────────── */
-const firebaseConfig = {
-  apiKey: "AIzaSyBni9HsSfoY_e9oQkW5HDAwypaEXMXQAOo",
-  authDomain: "gwbs-3ec22.firebaseapp.com",
-  projectId: "gwbs-3ec22",
-  storageBucket: "gwbs-3ec22.firebasestorage.app",
-  messagingSenderId: "589081885767",
-  appId: "1:589081885767:web:c44ad52ac51f5773ec0562"
-};
-firebase.initializeApp(firebaseConfig);
-const db = firebase.firestore();
+const db = FBGuard.init();
 
 /* ─── Toast ───────────────────────────────────────────────────── */
 const TOAST_ICONS = { info: 'ℹ️', success: '✅', error: '❌', warn: '⚠️' };
@@ -1571,7 +1563,7 @@ async function saveTaskEdit(dateKey, newTask, isNew) {
     showToast('저장되었습니다', 'success');
     loadBroadcastForDate(dateKey);
   } catch(e) {
-    showToast('저장 실패: ' + e.message, 'error');
+    showToast('저장 실패: ' + FBGuard.message(e), 'error');
   }
 }
 
@@ -1588,7 +1580,7 @@ async function deleteTask(dateKey, taskId) {
       showToast('삭제되었습니다', 'success');
       loadBroadcastForDate(dateKey);
     } catch(e) {
-      showToast('삭제 실패: ' + e.message, 'error');
+      showToast('삭제 실패: ' + FBGuard.message(e), 'error');
     }
   }, pw);
 }
@@ -1671,7 +1663,7 @@ async function loadBroadcastForDate(dateKey) {
     applyNameHighlight();
   } catch (e) {
     console.error(e);
-    showToast('방송 일정 로드 오류: ' + e.message, 'error');
+    showToast('방송 일정 로드 오류: ' + FBGuard.message(e), 'error');
     taskList.innerHTML = '<div class="empty-state"><span class="empty-icon">⚠️</span>일정을 불러오지 못했습니다.</div>';
   }
 }
@@ -1803,7 +1795,7 @@ async function toggleAbsent(tagEl, dateKey, taskId, period, name) {
     );
   } catch (e) {
     console.error(e);
-    showToast('출결 저장 실패: ' + e.message, 'error');
+    showToast('출결 저장 실패: ' + FBGuard.message(e), 'error');
   } finally {
     tagEl.style.opacity = '';
     tagEl.style.pointerEvents = '';
@@ -1845,7 +1837,7 @@ function initSongs() {
       renderSongList(document.getElementById('done-list'), done, true);
     }, err => {
       console.error(err);
-      showToast('신청곡 로드 오류: ' + err.message, 'error');
+      showToast('신청곡 로드 오류: ' + FBGuard.message(err), 'error');
     });
 }
 
@@ -1873,7 +1865,7 @@ function renderSongList(container, items, isDone) {
         await db.collection('songs').doc(item.id).update({ isDone: !isDone });
       } catch (e) {
         console.error(e);
-        showToast('업데이트 실패: ' + e.message, 'error');
+        showToast('업데이트 실패: ' + FBGuard.message(e), 'error');
         btn.disabled = false;
       }
     });
@@ -1924,7 +1916,7 @@ document.getElementById('reset-songs-btn').addEventListener('click', () => {
         showToast('신청곡이 모두 삭제되었습니다.', 'success');
       } catch (e) {
         console.error(e);
-        showToast('초기화 실패: ' + e.message, 'error');
+        showToast('초기화 실패: ' + FBGuard.message(e), 'error');
       }
     },
     schedPw || '9600'
@@ -1958,7 +1950,7 @@ async function loadManuals() {
     });
   } catch (e) {
     console.error(e);
-    showToast('매뉴얼 로드 오류: ' + e.message, 'error');
+    showToast('매뉴얼 로드 오류: ' + FBGuard.message(e), 'error');
     container.innerHTML = '<div class="empty-state"><span class="empty-icon">⚠️</span>매뉴얼을 불러오지 못했습니다.</div>';
   }
 }

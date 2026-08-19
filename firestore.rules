@@ -1,26 +1,38 @@
 rules_version = '2';
+
+// 관산중학교 방송부 앱 — Firestore 보안 규칙
+//
+// ⚠️ 이 파일을 저장소에 두는 것만으로는 아무 효과가 없습니다.
+//    반드시 Firebase에 "게시(deploy)"해야 적용됩니다.
+//      · CLI:  firebase deploy --only firestore:rules
+//      · 콘솔: Firebase 콘솔 → Firestore Database → 규칙 → 붙여넣기 → 게시
+//
+// 아래 규칙에는 만료 시각(request.time < timestamp.date(...))이 없습니다.
+// Firebase 콘솔의 "테스트 모드"로 만든 기본 규칙은 30일 뒤 모든 요청을
+// 차단하므로, 그 규칙이 남아 있으면 앱 전체가 permission-denied로 죽습니다.
+
 service cloud.firestore {
   match /databases/{database}/documents {
-    // 현재 설정: 읽기/쓰기 모두 허용 (기존 GAS 앱과 동일한 보안 수준)
-    // 추후 Firebase Auth 도입 시 아래 주석 처리된 규칙으로 교체 권장
-    match /{document=**} {
-      allow read, write: if true;
+
+    // 연결 진단용 프로브 (fb-guard.js). 읽기만 허용, 실제 문서는 없음.
+    match /__health/{doc} {
+      allow read: if true;
+      allow write: if false;
     }
 
-    // --- 강화된 보안 규칙 (선택사항) ---
-    // match /broadcasts/{doc} {
-    //   allow read: if true;
-    //   allow write: if request.auth != null;
-    // }
-    // match /attendance/{doc} {
-    //   allow read, write: if true;
-    // }
-    // match /songs/{doc} {
-    //   allow read, write: if true;
-    // }
-    // match /manuals/{doc} {
-    //   allow read: if true;
-    //   allow write: if request.auth != null;
-    // }
+    // 방송 일정 / 학생 명단 / 출결 / 신청곡 / 매뉴얼 / 앱 설정
+    // 현재 앱은 Firebase Auth를 쓰지 않고 화면 단 비밀번호로만 관리 모드를
+    // 구분하므로, 기존 GAS 앱과 동일하게 공개 읽기·쓰기를 유지합니다.
+    match /broadcasts/{doc}  { allow read, write: if true; }
+    match /students/{doc}    { allow read, write: if true; }
+    match /attendance/{doc}  { allow read, write: if true; }
+    match /songs/{doc}       { allow read, write: if true; }
+    match /manuals/{doc}     { allow read, write: if true; }
+    match /settings/{doc}    { allow read, write: if true; }
+
+    // 위에 명시하지 않은 경로는 모두 차단
+    match /{document=**} {
+      allow read, write: if false;
+    }
   }
 }
