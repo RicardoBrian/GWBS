@@ -588,17 +588,17 @@
 <!-- ── Toast container ─────────────────────────────────── -->
 <div id="toast-container"></div>
 
-<!-- ── Password modal ──────────────────────────────────── -->
+<!-- ── Google 로그인 모달 ──────────────────────────────── -->
 <div class="modal-overlay" id="pw-modal">
   <div class="modal-box">
     <div style="font-size:36px;margin-bottom:12px;">🔐</div>
     <h2>관리자 로그인</h2>
-    <p>관산중학교 방송부 관리자 페이지입니다</p>
-    <div style="margin-bottom:10px;">
-      <input class="inp" type="password" id="pw-input" placeholder="비밀번호 입력" autocomplete="current-password" style="text-align:center;font-size:18px;letter-spacing:0.2em;">
-    </div>
+    <p>관산중학교 방송부 관리자 페이지입니다<br>허용된 구글 계정으로만 접속할 수 있습니다</p>
     <div id="pw-error" style="font-size:13px;color:var(--danger);min-height:20px;margin-bottom:10px;"></div>
-    <button class="btn primary" style="width:100%;justify-content:center;" onclick="checkPassword()">로그인</button>
+    <button class="btn primary" style="width:100%;justify-content:center;gap:8px;" onclick="signInWithGoogle()" id="google-signin-btn">
+      <svg width="18" height="18" viewBox="0 0 18 18"><path fill="#4285F4" d="M17.64 9.2c0-.64-.06-1.25-.16-1.84H9v3.48h4.84a4.14 4.14 0 0 1-1.8 2.72v2.26h2.9c1.7-1.57 2.7-3.88 2.7-6.62z"/><path fill="#34A853" d="M9 18c2.43 0 4.47-.8 5.96-2.18l-2.9-2.26c-.8.54-1.84.86-3.06.86-2.35 0-4.34-1.59-5.05-3.72H.96v2.33A9 9 0 0 0 9 18z"/><path fill="#FBBC05" d="M3.95 10.7A5.4 5.4 0 0 1 3.67 9c0-.59.1-1.17.28-1.7V4.97H.96A9 9 0 0 0 0 9c0 1.45.35 2.83.96 4.03l2.99-2.33z"/><path fill="#EA4335" d="M9 3.58c1.32 0 2.51.46 3.44 1.35l2.58-2.58C13.46.89 11.43 0 9 0A9 9 0 0 0 .96 4.97l2.99 2.33C4.66 5.17 6.65 3.58 9 3.58z"/></svg>
+      Google로 로그인
+    </button>
   </div>
 </div>
 
@@ -872,7 +872,12 @@
     <section class="section" id="sec-songs">
       <div class="section-head">
         <div><h2>신청곡 관리</h2><div class="s-sub">학생 신청곡 목록 관리</div></div>
-        <button class="btn danger sm" onclick="resetAllSongs()">전체 초기화</button>
+        <div style="display:flex;gap:8px;">
+          <button class="btn ghost sm" id="yt-bulk-btn" onclick="ytAutoLinkAll()" style="display:none;">
+            ⚡ 미연결 곡 전체 자동 연결
+          </button>
+          <button class="btn danger sm" onclick="resetAllSongs()">전체 초기화</button>
+        </div>
       </div>
       <div class="card" style="margin-bottom:20px;">
         <div style="display:grid;grid-template-columns:70px 1fr 1fr 2fr 1fr auto;gap:10px;align-items:end;">
@@ -958,7 +963,10 @@
 
 <script>
 // ── Firebase init ─────────────────────────────────────────
-const db = FBGuard.init({ auth: true });
+// 관리자 페이지는 staff 커스텀 토큰으로 자동 로그인하지 않습니다 —
+// 아래 signInWithGoogle() 이 관리자 본인 계정으로만 로그인시킵니다.
+// (자동 로그인을 켜 두면 이미 로그인해 둔 구글 세션을 매번 덮어씁니다)
+const db = FBGuard.init();
 
 // ── Dark mode ─────────────────────────────────────────────
 function toggleDark() {
@@ -982,48 +990,59 @@ function showToast(message, type = 'info') {
   }, 3000);
 }
 
-// ── Auth ──────────────────────────────────────────────────
-// Cloudflare Access(구글 로그인)가 설정돼 있으면 그쪽이 이미 신원을
-// 확인했으므로 비밀번호 화면을 건너뜁니다. Access를 아직 붙이지 않은
-// 상태에서 관리자 페이지가 무방비로 열리지 않도록, 그때만 아래의
-// 비밀번호 화면으로 되돌아갑니다.
-async function checkAuth() {
-  if (sessionStorage.getItem('gwbs_auth') === '1') { initApp(); return; }
+// ── Auth: Firebase Auth 구글 로그인 ─────────────────────────
+// 관리자 페이지는 사이트 입장 게이트(Cloudflare)를 통과한 뒤에도
+// 별도로 구글 로그인을 요구합니다. 허용 여부는 클라이언트가 아니라
+// Firestore 규칙(functions 없이 admin() 검사)이 최종 판단합니다 —
+// 여기서 하는 이메일 체크는 화면 전환용이고, 실제 쓰기 권한은
+// firestore.rules 의 admin() 함수가 막습니다.
+const ADMIN_EMAIL = 'qjatjr7575@gmail.com';
+
+async function signInWithGoogle() {
+  const btn = document.getElementById('google-signin-btn');
+  btn.disabled = true;
+  document.getElementById('pw-error').textContent = '';
   try {
-    const res = await fetch('/api/me', { credentials: 'same-origin' });
-    if (res.ok) {
-      const me = await res.json();
-      if (me.email) {
-        sessionStorage.setItem('gwbs_auth', '1');
-        initApp();
-        return;
-      }
+    const provider = new firebase.auth.GoogleAuthProvider();
+    const result = await firebase.auth().signInWithPopup(provider);
+    if (result.user.email !== ADMIN_EMAIL) {
+      await firebase.auth().signOut();
+      document.getElementById('pw-error').textContent =
+        `허용되지 않은 계정입니다 (${result.user.email})`;
+      showToast('허용되지 않은 구글 계정입니다', 'error');
+      btn.disabled = false;
+      return;
     }
-  } catch (e) { /* Cloudflare 밖에서 실행 중 — 아래 비밀번호로 폴백 */ }
-  document.getElementById('pw-modal').classList.add('open');
-  setTimeout(() => document.getElementById('pw-input').focus(), 100);
-}
-function checkPassword() {
-  const v = document.getElementById('pw-input').value;
-  if (v === 'qjatjrdl1') {
-    sessionStorage.setItem('gwbs_auth', '1');
     document.getElementById('pw-modal').classList.remove('open');
     initApp();
-  } else {
-    const inp = document.getElementById('pw-input');
-    inp.classList.remove('shake');
-    void inp.offsetWidth;
-    inp.classList.add('shake');
-    document.getElementById('pw-error').textContent = '비밀번호가 올바르지 않습니다';
-    showToast('비밀번호가 올바르지 않습니다', 'error');
-    inp.value = '';
-    inp.focus();
+  } catch (e) {
+    console.error(e);
+    if (e.code !== 'auth/popup-closed-by-user' && e.code !== 'auth/cancelled-popup-request') {
+      const msg = e.code === 'auth/unauthorized-domain'
+        ? '이 도메인이 Firebase에 승인돼 있지 않습니다. 콘솔 → Authentication → Settings → 승인된 도메인에 이 주소를 추가하세요.'
+        : e.code === 'auth/operation-not-allowed'
+        ? 'Firebase 콘솔 → Authentication → Sign-in method 에서 Google 로그인이 아직 켜져 있지 않습니다.'
+        : ('로그인 실패: ' + e.message);
+      document.getElementById('pw-error').textContent = msg;
+      showToast(msg, 'error');
+    }
+    btn.disabled = false;
   }
 }
-document.getElementById('pw-input').addEventListener('keydown', e => {
-  if (e.key === 'Enter') checkPassword();
-});
-// Prevent Escape closing the password modal
+
+async function checkAuth() {
+  // 페이지를 새로고침해도 Firebase Auth 세션이 살아 있으면 다시 로그인하지 않는다.
+  await FBGuard.ready();
+  firebase.auth().onAuthStateChanged(user => {
+    if (user && user.email === ADMIN_EMAIL) {
+      document.getElementById('pw-modal').classList.remove('open');
+      initApp();
+    } else {
+      document.getElementById('pw-modal').classList.add('open');
+    }
+  });
+}
+// Prevent Escape closing the login modal
 document.getElementById('pw-modal').addEventListener('keydown', e => {
   if (e.key === 'Escape') e.stopPropagation();
 });
@@ -1377,6 +1396,8 @@ function renderSongs(all) {
   const doneEl = document.getElementById('songs-done');
   document.getElementById('songs-pending-empty').style.display = pending.length ? 'none' : '';
   document.getElementById('songs-done-empty').style.display = done.length ? 'none' : '';
+  document.getElementById('yt-bulk-btn').style.display =
+    (YTLink.hasKey() && pending.some(s => !s.videoId)) ? '' : 'none';
   pendEl.innerHTML = pending.map(s => songItemHtml(s)).join('');
   doneEl.innerHTML = done.map(s => songItemHtml(s)).join('');
 }
@@ -1392,6 +1413,7 @@ function songItemHtml(s) {
             title="${linked ? '연결된 영상 변경' : '유튜브 영상 연결'}">
       ${linked ? '▶ 연결됨' : '🔍 찾기'}
     </button>
+    ${!linked && YTLink.hasKey() ? `<button class="yt-badge" onclick="ytAutoLink('${s.id}', this)" title="검색 결과 1위를 자동으로 연결">⚡ 자동</button>` : ''}
     <button class="btn sm ${s.isDone ? 'ghost' : 'primary'}" onclick="toggleSong('${s.id}',${s.isDone})" title="${s.isDone ? '대기로 되돌리기' : '완료 처리'}">
       ${s.isDone ? '↩' : '✓'}
     </button>
@@ -1506,6 +1528,51 @@ async function ytPasteFromClipboard() {
     showToast(e.message, 'warn');
     document.getElementById('yt-manual-url').focus();
   }
+}
+
+/*
+ * 검색 결과 1위 자동 연결.
+ * ⚠️ 정확도 보장은 없습니다 — 커버곡/노래방 반주/편집 영상이 1위로
+ * 잡힐 수 있으니, 방송 전에 ▶ 연결됨 배지를 눌러 한 번씩 확인해 주세요.
+ */
+async function ytAutoLink(id, btn) {
+  const song = songsAll.find(s => s.id === id);
+  if (!song) return;
+  if (btn) { btn.disabled = true; btn.textContent = '⏳'; }
+  try {
+    const results = await YTLink.search(YTLink.query(song.song, song.artist), 1);
+    if (!results.length) { showToast(`검색 결과 없음: ${song.song}`, 'warn'); return; }
+    await db.collection('songs').doc(id).update({ videoId: results[0].videoId });
+  } catch (e) {
+    showToast(`${song.song}: ${e.message}`, 'error');
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = '⚡ 자동'; }
+  }
+}
+
+async function ytAutoLinkAll() {
+  const targets = songsAll.filter(s => !s.videoId);
+  if (!targets.length) { showToast('연결할 곡이 없습니다.', 'info'); return; }
+  const btn = document.getElementById('yt-bulk-btn');
+  btn.disabled = true;
+  let ok = 0, fail = 0;
+  for (const song of targets) {
+    try {
+      const results = await YTLink.search(YTLink.query(song.song, song.artist), 1);
+      if (!results.length) { fail++; continue; }
+      await db.collection('songs').doc(song.id).update({ videoId: results[0].videoId });
+      ok++;
+    } catch (e) {
+      fail++;
+      if (e.message.includes('할당량')) {
+        showToast(`${ok}곡 연결, 나머지는 ${e.message}`, 'warn');
+        btn.disabled = false;
+        return;
+      }
+    }
+  }
+  showToast(`${ok}곡 연결됨${fail ? `, ${fail}곡 실패 (수동으로 확인해 주세요)` : ''}`, fail ? 'warn' : 'success');
+  btn.disabled = false;
 }
 
 async function toggleSong(id, isDone) {
@@ -1692,17 +1759,19 @@ document.addEventListener('keydown', e => {
 });
 
 // ── 접속 권한 표시 ────────────────────────────────────────
-async function showAuthStatus() {
+function showAuthStatus() {
   const el = document.getElementById('auth-status');
-  const id = await FBGuard.ready();
-  if (id && id.admin) {
-    el.innerHTML = `구글 로그인: <b>${escHtml(id.email)}</b> · 편집 권한 있음`;
-  } else if (id) {
-    el.textContent = '입장 비밀번호로 접속 중 · 편집 권한 있음';
+  const user = firebase.auth().currentUser;
+  if (user) {
+    el.innerHTML = `구글 로그인: <b>${escHtml(user.email)}</b> · 편집 권한 있음`;
   } else {
-    el.innerHTML = '<span style="color:var(--danger)">읽기 전용입니다.</span> ' +
-      'Cloudflare Pages에 SITE_PASSWORD / FIREBASE_SERVICE_ACCOUNT 시크릿이 설정돼 있는지 확인하세요.';
+    el.innerHTML = '<span style="color:var(--danger)">로그인 정보를 확인할 수 없습니다.</span>';
   }
+}
+
+function adminSignOut() {
+  firebase.auth().signOut();
+  location.reload();
 }
 
 // ── Init ──────────────────────────────────────────────────

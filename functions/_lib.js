@@ -60,15 +60,6 @@ export async function isStaff(request, env) {
   return isGateCookieValid(readCookie(request, GATE_COOKIE), env.SITE_PASSWORD);
 }
 
-/**
- * Cloudflare Access가 인증한 이메일.
- * Pages 앞단의 Access만 이 헤더를 붙일 수 있고 외부에서는 위조해도
- * 엣지에서 덮어써지므로, Pages 환경에서는 이 값을 신뢰할 수 있습니다.
- */
-export function accessEmail(request) {
-  return request.headers.get('Cf-Access-Authenticated-User-Email') || null;
-}
-
 function pemToArrayBuffer(pem) {
   const body = pem.replace(/-----[A-Z ]+-----/g, '').replace(/\s+/g, '');
   const bin = atob(body);

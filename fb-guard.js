@@ -53,7 +53,9 @@ window.FB_CONFIG = {
     return (e && e.message) ? e.message : '알 수 없는 오류';
   }
 
-  // 게이트/Access 를 통과해 얻은 신원. null 이면 읽기 전용.
+  // 사이트 입장 게이트를 통과해 얻은 신원(staff). null 이면 읽기 전용.
+  // 관리자(admin) 권한은 이 값과 무관하게 각 페이지가 Firebase Auth
+  // 구글 로그인으로 직접 받는다 (admin.html 참고).
   var identity = null;
   var authReady = Promise.resolve(null);
 
@@ -127,8 +129,9 @@ window.FB_CONFIG = {
 
   /**
    * Cloudflare Function이 발급한 커스텀 토큰으로 Firebase에 로그인한다.
-   * 입장 비밀번호(또는 Access 구글 로그인)를 통과한 브라우저만 토큰을
-   * 받을 수 있으므로, Firestore 쓰기 권한이 게이트와 묶입니다.
+   * 입장 비밀번호(SITE_PASSWORD)를 통과한 브라우저만 이 토큰을 받을 수
+   * 있으므로, Firestore 쓰기 권한이 게이트와 묶입니다. 이 로그인은
+   * staff 권한만 준다 — admin 권한은 이 흐름과 별개다.
    *
    * 로그인에 실패해도 읽기는 그대로 동작합니다(규칙상 읽기는 공개).
    */
@@ -165,7 +168,7 @@ window.FB_CONFIG = {
       banner('Firebase 로그인에 실패했습니다: ' + message(e));
       return null;
     }
-    identity = { staff: true, admin: !!data.admin, email: data.email || null };
+    identity = { staff: true };
     return identity;
   }
 
@@ -196,10 +199,9 @@ window.FB_CONFIG = {
 
   window.FBGuard = {
     init: init, check: check, message: message, banner: banner, offlineStub: offlineStub,
-    /** 로그인이 끝날 때까지 기다린다. 결과는 신원 객체 또는 null. */
+    /** staff 로그인이 끝날 때까지 기다린다. 결과는 신원 객체 또는 null. */
     ready: function () { return authReady; },
     /** 현재 신원 (null = 읽기 전용) */
-    identity: function () { return identity; },
-    isAdmin: function () { return !!(identity && identity.admin); }
+    identity: function () { return identity; }
   };
 })();

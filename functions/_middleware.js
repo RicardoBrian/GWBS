@@ -3,13 +3,15 @@
  *
  *  · /request.html 과 그 자산은 학생용이라 누구나 접근 가능
  *  · 나머지는 SITE_PASSWORD 시크릿을 아는 사람만
- *  · /admin.html 은 그 위에 Cloudflare Access(구글 로그인)를 얹습니다
+ *  · /admin.html 접속 자체는 이 게이트로 충분히 막히고, 그 안에서의
+ *    관리자 권한(구글 로그인)은 admin.html 이 Firebase Auth로 직접
+ *    처리합니다 — 여기서는 관여하지 않습니다.
  *
  * SITE_PASSWORD 시크릿이 설정돼 있지 않으면 게이트는 동작하지 않습니다.
  * (배포 직후 스스로 잠겨 버리는 사고를 막기 위한 기본값)
  */
 import { GATE_COOKIE, isGateCookieValid, makeGateCookie, gateCookieHeader,
-         readCookie, isStaff, accessEmail, mintFirebaseToken, json } from './_lib.js';
+         readCookie, isStaff, mintFirebaseToken, json } from './_lib.js';
 
 const PUBLIC_PATHS = new Set([
   '/request', '/request.html',   // 학생 신청 페이지
@@ -24,7 +26,6 @@ export async function onRequest(context) {
 
   if (path === '/_gate')      return handleGate(context, url);
   if (path === '/api/token')  return handleToken(context);
-  if (path === '/api/me')     return handleMe(context);
 
   if (PUBLIC_PATHS.has(path)) return next();
   if (!env.SITE_PASSWORD)     return next();   // 시크릿 미설정 → 게이트 비활성
@@ -121,30 +122,23 @@ function gatePage(nextPath, error, status) {
   });
 }
 
-/* ── Firestore 쓰기 권한 토큰 ─────────────────────────────── */
+/*
+ * Firestore 쓰기 권한 토큰. 입장 비밀번호(SITE_PASSWORD)를 통과한
+ * 브라우저에게만 staff:true 클레임이 담긴 Firebase 커스텀 토큰을 준다.
+ *
+ * 관리자(admin) 권한은 여기서 다루지 않는다 — admin.html 이 Firebase
+ * Auth 구글 로그인으로 직접 받고, firestore.rules 가 그 ID 토큰의
+ * email 클레임을 검사한다. 이 토큰은 어디까지나 "사이트에 들어올 수
+ * 있다 = 방송부원이다"만 증명한다.
+ */
 async function handleToken({ request, env }) {
-  const email = accessEmail(request);          // Access(구글 로그인) 통과 여부
-  const staff = await isStaff(request, env);   // 입장 비밀번호 통과 여부
-  if (!email && !staff) return json({ error: 'unauthorized' }, 401);
+  if (!(await isStaff(request, env))) return json({ error: 'unauthorized' }, 401);
   if (!env.FIREBASE_SERVICE_ACCOUNT) return json({ error: 'no_service_account' }, 503);
 
   try {
-    const token = await mintFirebaseToken(
-      env,
-      email ? 'admin:' + email : 'staff',
-      { staff: true, admin: !!email }
-    );
-    return json({ token, admin: !!email, email });
+    const token = await mintFirebaseToken(env, 'staff', { staff: true });
+    return json({ token });
   } catch (e) {
     return json({ error: 'mint_failed', detail: String(e && e.message) }, 500);
   }
-}
-
-/** 관리자 페이지가 "누구로 로그인돼 있는지" 물어보는 곳 */
-function handleMe({ request, env }) {
-  return json({
-    email: accessEmail(request),
-    accessEnabled: !!accessEmail(request),
-    gateEnabled: !!env.SITE_PASSWORD
-  });
 }
