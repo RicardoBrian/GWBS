@@ -8,6 +8,9 @@
   <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+KR:wght@300;400;500;600;700&display=swap" rel="stylesheet">
   <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-auth-compat.js"></script>
+  <script src="fb-guard.js"></script>
+  <script src="yt.js"></script>
   <style>
     /* ── Design tokens ───────────────────────────────────── */
     :root {
@@ -380,6 +383,7 @@
     .song-info { flex: 1; min-width: 0; }
     .song-title { font-size: 14px; font-weight: 600; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
     .song-meta { font-size: 12px; color: var(--text-3); margin-top: 2px; }
+    .song-artist { font-weight: 400; color: var(--text-3); }
 
     /* ── Modal overlay ───────────────────────────────────── */
     .modal-overlay {
@@ -430,6 +434,32 @@
       transition: all var(--dur) var(--ease);
     }
     #picker-modal .pick-chip:hover { background: var(--accent); color: #fff; border-color: transparent; }
+
+    /* ── YouTube link picker ─────────────────────────────── */
+    #yt-modal .modal-box { max-width: 560px; }
+    .yt-badge {
+      display: inline-flex; align-items: center; gap: 4px; flex-shrink: 0;
+      padding: 3px 9px; border-radius: var(--radius-pill);
+      font-size: 11px; font-weight: 600; letter-spacing: -0.01em;
+      border: 1px solid var(--border); background: var(--surface-2); color: var(--text-3);
+      cursor: pointer; transition: all var(--dur) var(--ease);
+    }
+    .yt-badge:hover { border-color: var(--accent); color: var(--accent); }
+    .yt-badge.linked { background: rgba(52,199,89,0.14); border-color: transparent; color: #248a3d; }
+    body.dark .yt-badge.linked { color: #6ee787; }
+    .yt-result {
+      display: flex; gap: 12px; align-items: center; width: 100%; text-align: left;
+      padding: 8px; border-radius: var(--radius); cursor: pointer;
+      background: var(--glass); border: 1px solid var(--border);
+      transition: all var(--dur) var(--ease); margin-bottom: 8px;
+    }
+    .yt-result:hover { border-color: var(--accent); box-shadow: var(--shadow-sm); }
+    .yt-result img { width: 96px; height: 54px; object-fit: cover; border-radius: 8px; flex-shrink: 0; background: var(--surface-2); }
+    .yt-result-title { font-size: 13px; font-weight: 600; color: var(--text); line-height: 1.35; }
+    .yt-result-ch { font-size: 12px; color: var(--text-3); margin-top: 3px; }
+    .yt-manual { display: flex; gap: 8px; margin-top: 6px; }
+    .yt-manual .inp { flex: 1; min-width: 0; }
+    .yt-hint { font-size: 12px; color: var(--text-3); line-height: 1.6; }
 
     /* ── Confirm modal ───────────────────────────────────── */
     #confirm-modal .confirm-actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 20px; }
@@ -586,6 +616,27 @@
   </div>
 </div>
 
+<!-- ── YouTube link picker modal ───────────────────────── -->
+<div class="modal-overlay" id="yt-modal">
+  <div class="modal-box">
+    <div class="modal-head">
+      <h3>유튜브 링크 연결</h3>
+      <button class="icon-btn modal-close" onclick="closeYtPicker()">
+        <svg width="17" height="17"><use href="#ic-close"/></svg>
+      </button>
+    </div>
+    <p class="yt-hint" id="yt-subject" style="margin-bottom:14px;"></p>
+    <div id="yt-results" style="margin-bottom:14px;"></div>
+    <p class="yt-hint" id="yt-fallback-hint"></p>
+    <div class="yt-manual">
+      <input class="inp" id="yt-manual-url" placeholder="유튜브 주소 붙여넣기"
+             onkeydown="if(event.key==='Enter')ytSaveManual()">
+      <button class="btn ghost sm" onclick="ytPasteFromClipboard()" title="클립보드에서 붙여넣기">📋</button>
+      <button class="btn primary sm" onclick="ytSaveManual()">연결</button>
+    </div>
+  </div>
+</div>
+
 <!-- ── Confirm modal ───────────────────────────────────── -->
 <div class="modal-overlay" id="confirm-modal">
   <div class="modal-box">
@@ -675,16 +726,10 @@
       </div>
       <div class="card" style="margin-top:20px;">
         <div style="margin-bottom:12px;">
-          <h3 style="font-size:1rem;margin:0 0 4px;">방송 관리 비밀번호</h3>
-          <div class="s-sub">메인 페이지에서 방송 일정 수정 시 사용하는 비밀번호</div>
+          <h3 style="font-size:1rem;margin:0 0 4px;">접속 권한</h3>
+          <div class="s-sub">사이트 입장 비밀번호와 관리자 로그인은 Cloudflare에서 관리합니다</div>
         </div>
-        <div style="display:flex;gap:10px;align-items:end;">
-          <div style="flex:1;">
-            <label class="lbl">비밀번호</label>
-            <input class="inp" type="text" id="sched-pw-input" placeholder="방송 관리 비밀번호">
-          </div>
-          <button class="btn primary" onclick="saveSchedPw()">저장</button>
-        </div>
+        <div class="s-sub" id="auth-status">확인 중…</div>
       </div>
     </section>
 
@@ -913,16 +958,7 @@
 
 <script>
 // ── Firebase init ─────────────────────────────────────────
-const firebaseConfig = {
-  apiKey: "AIzaSyBni9HsSfoY_e9oQkW5HDAwypaEXMXQAOo",
-  authDomain: "gwbs-3ec22.firebaseapp.com",
-  projectId: "gwbs-3ec22",
-  storageBucket: "gwbs-3ec22.firebasestorage.app",
-  messagingSenderId: "589081885767",
-  appId: "1:589081885767:web:c44ad52ac51f5773ec0562"
-};
-firebase.initializeApp(firebaseConfig);
-const db = firebase.firestore();
+const db = FBGuard.init({ auth: true });
 
 // ── Dark mode ─────────────────────────────────────────────
 function toggleDark() {
@@ -946,9 +982,24 @@ function showToast(message, type = 'info') {
   }, 3000);
 }
 
-// ── Password ──────────────────────────────────────────────
-function checkAuth() {
-  if (sessionStorage.getItem('gwbs_auth') === '1') return;
+// ── Auth ──────────────────────────────────────────────────
+// Cloudflare Access(구글 로그인)가 설정돼 있으면 그쪽이 이미 신원을
+// 확인했으므로 비밀번호 화면을 건너뜁니다. Access를 아직 붙이지 않은
+// 상태에서 관리자 페이지가 무방비로 열리지 않도록, 그때만 아래의
+// 비밀번호 화면으로 되돌아갑니다.
+async function checkAuth() {
+  if (sessionStorage.getItem('gwbs_auth') === '1') { initApp(); return; }
+  try {
+    const res = await fetch('/api/me', { credentials: 'same-origin' });
+    if (res.ok) {
+      const me = await res.json();
+      if (me.email) {
+        sessionStorage.setItem('gwbs_auth', '1');
+        initApp();
+        return;
+      }
+    }
+  } catch (e) { /* Cloudflare 밖에서 실행 중 — 아래 비밀번호로 폴백 */ }
   document.getElementById('pw-modal').classList.add('open');
   setTimeout(() => document.getElementById('pw-input').focus(), 100);
 }
@@ -1041,7 +1092,7 @@ async function loadDashboard() {
     document.getElementById('stat-songs').textContent = sg.size;
     document.getElementById('stat-absent').textContent = at.size;
   } catch(e) {
-    showToast('대시보드 로딩 실패: ' + e.message, 'error');
+    showToast('대시보드 로딩 실패: ' + FBGuard.message(e), 'error');
   }
 }
 
@@ -1056,7 +1107,7 @@ async function loadBroadcasts() {
     broadcastDocs = snap.docs.map(d => ({ id: d.id, ...d.data() }));
     renderBroadcastList();
   } catch(e) {
-    showToast('방송 일정 로딩 실패: ' + e.message, 'error');
+    showToast('방송 일정 로딩 실패: ' + FBGuard.message(e), 'error');
   }
 }
 
@@ -1146,7 +1197,7 @@ async function saveBroadcast() {
     await loadBroadcasts();
     document.getElementById('bc-del-btn').style.display = '';
   } catch(e) {
-    showToast('저장 실패: ' + e.message, 'error');
+    showToast('저장 실패: ' + FBGuard.message(e), 'error');
   }
 }
 
@@ -1169,7 +1220,7 @@ async function deleteBroadcast() {
     selectedBcDateKey = null;
     await loadBroadcasts();
   } catch(e) {
-    showToast('삭제 실패: ' + e.message, 'error');
+    showToast('삭제 실패: ' + FBGuard.message(e), 'error');
   }
 }
 
@@ -1230,7 +1281,7 @@ function loadStudents() {
           </div>`
         ).join('') || '<span style="color:var(--text-3);font-size:13px;">학생 없음</span>';
       }, e => {
-        showToast('학생 로딩 오류: ' + e.message, 'error');
+        showToast('학생 로딩 오류: ' + FBGuard.message(e), 'error');
       });
   });
 }
@@ -1244,7 +1295,7 @@ async function addStudent(grade) {
     inp.value = '';
     showToast(`${name} 추가됨`, 'success');
   } catch(e) {
-    showToast('추가 실패: ' + e.message, 'error');
+    showToast('추가 실패: ' + FBGuard.message(e), 'error');
   }
 }
 
@@ -1255,7 +1306,7 @@ async function deleteStudent(id) {
     await db.collection('students').doc(id).delete();
     showToast('삭제되었습니다', 'success');
   } catch(e) {
-    showToast('삭제 실패: ' + e.message, 'error');
+    showToast('삭제 실패: ' + FBGuard.message(e), 'error');
   }
 }
 
@@ -1269,7 +1320,7 @@ function loadAttendance() {
     .onSnapshot(snap => {
       attAll = snap.docs.map(d => ({ id: d.id, ...d.data() }));
       filterAttendance();
-    }, e => showToast('출결 로딩 오류: ' + e.message, 'error'));
+    }, e => showToast('출결 로딩 오류: ' + FBGuard.message(e), 'error'));
 }
 
 function filterAttendance() {
@@ -1301,7 +1352,7 @@ async function deleteAttendance(id) {
     await db.collection('attendance').doc(id).delete();
     showToast('삭제 완료', 'success');
   } catch(e) {
-    showToast('삭제 실패: ' + e.message, 'error');
+    showToast('삭제 실패: ' + FBGuard.message(e), 'error');
   }
 }
 
@@ -1313,10 +1364,13 @@ function loadSongs() {
     .onSnapshot(snap => {
       const all = snap.docs.map(d => ({ id: d.id, ...d.data() }));
       renderSongs(all);
-    }, e => showToast('신청곡 로딩 오류: ' + e.message, 'error'));
+    }, e => showToast('신청곡 로딩 오류: ' + FBGuard.message(e), 'error'));
 }
 
+let songsAll = [];
+
 function renderSongs(all) {
+  songsAll = all;
   const pending = all.filter(s => !s.isDone);
   const done = all.filter(s => s.isDone);
   const pendEl = document.getElementById('songs-pending');
@@ -1328,11 +1382,16 @@ function renderSongs(all) {
 }
 
 function songItemHtml(s) {
+  const linked = !!s.videoId;
   return `<div class="song-item">
     <div class="song-info">
-      <div class="song-title">${escHtml(s.song || '')}</div>
-      <div class="song-meta">${escHtml(s.classInfo || '')} · ${escHtml(s.name || '')}${s.artist ? ' · ' + escHtml(s.artist) : ''}</div>
+      <div class="song-title">${escHtml(s.song || '')}${s.artist ? `<span class="song-artist"> — ${escHtml(s.artist)}</span>` : ''}</div>
+      <div class="song-meta">${[s.classInfo, s.name].filter(Boolean).map(escHtml).join(' ')} 신청</div>
     </div>
+    <button class="yt-badge${linked ? ' linked' : ''}" onclick="openYtPicker('${s.id}')"
+            title="${linked ? '연결된 영상 변경' : '유튜브 영상 연결'}">
+      ${linked ? '▶ 연결됨' : '🔍 찾기'}
+    </button>
     <button class="btn sm ${s.isDone ? 'ghost' : 'primary'}" onclick="toggleSong('${s.id}',${s.isDone})" title="${s.isDone ? '대기로 되돌리기' : '완료 처리'}">
       ${s.isDone ? '↩' : '✓'}
     </button>
@@ -1358,7 +1417,94 @@ async function addSong() {
     document.getElementById('song-artist').value = '';
     showToast('신청곡 추가됨', 'success');
   } catch(e) {
-    showToast('추가 실패: ' + e.message, 'error');
+    showToast('추가 실패: ' + FBGuard.message(e), 'error');
+  }
+}
+
+/* ── YouTube 링크 연결 ─────────────────────────────────── */
+let ytTargetId = null;
+
+function ytSetResults(html) { document.getElementById('yt-results').innerHTML = html; }
+
+async function openYtPicker(id) {
+  const song = songsAll.find(s => s.id === id);
+  if (!song) return;
+  ytTargetId = id;
+
+  const q = YTLink.query(song.song, song.artist);
+  document.getElementById('yt-subject').innerHTML =
+    `<b>${escHtml(song.song || '')}</b>${song.artist ? ' — ' + escHtml(song.artist) : ''}` +
+    (song.videoId
+      ? ` · <a href="${YTLink.watchUrl(song.videoId)}" target="_blank" rel="noopener">현재 연결된 영상</a>` +
+        ` · <a href="#" onclick="ytClearLink();return false;">연결 해제</a>`
+      : '');
+  document.getElementById('yt-manual-url').value = '';
+  document.getElementById('yt-modal').classList.add('open');
+
+  if (!YTLink.hasKey()) {
+    // 키가 없을 때: 유튜브 검색 탭을 열고 주소를 받아 온다
+    document.getElementById('yt-fallback-hint').innerHTML =
+      '① 아래 버튼으로 유튜브 검색을 연 뒤 ② 영상 주소를 복사하고 ③ 📋 를 누르세요.';
+    ytSetResults(
+      `<button class="btn ghost sm" onclick="window.open('${YTLink.searchUrl(q)}','_blank','noopener')">` +
+      `🔍 유튜브에서 “${escHtml(q)}” 검색 열기</button>`);
+    return;
+  }
+
+  document.getElementById('yt-fallback-hint').innerHTML =
+    '원하는 영상이 없으면 주소를 직접 붙여넣어도 됩니다.';
+  ytSetResults('<span class="yt-hint">검색 중…</span>');
+  try {
+    const results = await YTLink.search(q, 5);
+    if (!results.length) { ytSetResults('<span class="yt-hint">검색 결과가 없습니다.</span>'); return; }
+    ytSetResults(results.map(r =>
+      `<button class="yt-result" onclick="ytPick('${r.videoId}')">
+         <img src="${r.thumb}" alt="" loading="lazy">
+         <span>
+           <span class="yt-result-title">${escHtml(r.title)}</span>
+           <span class="yt-result-ch">${escHtml(r.channel)}</span>
+         </span>
+       </button>`).join(''));
+  } catch (e) {
+    ytSetResults(
+      `<span class="yt-hint" style="color:var(--danger)">${escHtml(e.message)}</span><br>` +
+      `<button class="btn ghost sm" style="margin-top:8px" onclick="window.open('${YTLink.searchUrl(q)}','_blank','noopener')">` +
+      `🔍 유튜브에서 직접 검색</button>`);
+  }
+}
+
+function closeYtPicker() {
+  document.getElementById('yt-modal').classList.remove('open');
+  ytTargetId = null;
+}
+
+async function ytSaveVideoId(videoId) {
+  if (!ytTargetId) return;
+  try {
+    await db.collection('songs').doc(ytTargetId).update({ videoId });
+    showToast(videoId ? '영상이 연결되었습니다' : '연결을 해제했습니다', 'success');
+    closeYtPicker();
+  } catch (e) {
+    showToast('저장 실패: ' + FBGuard.message(e), 'error');
+  }
+}
+
+function ytPick(videoId) { ytSaveVideoId(videoId); }
+function ytClearLink() { ytSaveVideoId(''); }
+
+function ytSaveManual() {
+  const raw = document.getElementById('yt-manual-url').value;
+  const id = YTLink.parseVideoId(raw);
+  if (!id) { showToast('유튜브 주소를 인식하지 못했습니다', 'warn'); return; }
+  ytSaveVideoId(id);
+}
+
+async function ytPasteFromClipboard() {
+  try {
+    ytSaveVideoId(await YTLink.readClipboardVideoId());
+  } catch (e) {
+    showToast(e.message, 'warn');
+    document.getElementById('yt-manual-url').focus();
   }
 }
 
@@ -1366,7 +1512,7 @@ async function toggleSong(id, isDone) {
   try {
     await db.collection('songs').doc(id).update({ isDone: !isDone });
   } catch(e) {
-    showToast('업데이트 실패: ' + e.message, 'error');
+    showToast('업데이트 실패: ' + FBGuard.message(e), 'error');
   }
 }
 
@@ -1377,7 +1523,7 @@ async function deleteSong(id) {
     await db.collection('songs').doc(id).delete();
     showToast('삭제되었습니다', 'success');
   } catch(e) {
-    showToast('삭제 실패: ' + e.message, 'error');
+    showToast('삭제 실패: ' + FBGuard.message(e), 'error');
   }
 }
 
@@ -1391,7 +1537,7 @@ async function resetAllSongs() {
     await batch.commit();
     showToast('전체 초기화 완료', 'success');
   } catch(e) {
-    showToast('초기화 실패: ' + e.message, 'error');
+    showToast('초기화 실패: ' + FBGuard.message(e), 'error');
   }
 }
 
@@ -1407,7 +1553,7 @@ function loadManuals() {
     .onSnapshot(snap => {
       manualDocs = snap.docs.map(d => ({ id: d.id, ...d.data() }));
       renderManualList();
-    }, e => showToast('매뉴얼 로딩 오류: ' + e.message, 'error'));
+    }, e => showToast('매뉴얼 로딩 오류: ' + FBGuard.message(e), 'error'));
 }
 
 function renderManualList() {
@@ -1507,7 +1653,7 @@ async function saveManual() {
       await db.collection('manuals').add({ mainTitle, mainDesc, subItems, createdAt: firebase.firestore.FieldValue.serverTimestamp() });
       showToast('저장되었습니다', 'success');
     }
-  } catch(e) { showToast('저장 실패: ' + e.message, 'error'); }
+  } catch(e) { showToast('저장 실패: ' + FBGuard.message(e), 'error'); }
 }
 
 async function deleteManual() {
@@ -1518,7 +1664,7 @@ async function deleteManual() {
     await db.collection('manuals').doc(selectedManualId).delete();
     showToast('삭제되었습니다', 'success');
     clearManualForm();
-  } catch(e) { showToast('삭제 실패: ' + e.message, 'error'); }
+  } catch(e) { showToast('삭제 실패: ' + FBGuard.message(e), 'error'); }
 }
 
 // ── Utilities ─────────────────────────────────────────────
@@ -1530,6 +1676,9 @@ function escHtml(str) {
 document.getElementById('picker-modal').addEventListener('click', e => {
   if (e.target === e.currentTarget) closePicker();
 });
+document.getElementById('yt-modal').addEventListener('click', e => {
+  if (e.target === e.currentTarget) closeYtPicker();
+});
 document.getElementById('confirm-modal').addEventListener('click', e => {
   if (e.target === e.currentTarget) confirmResolve(false);
 });
@@ -1537,39 +1686,32 @@ document.getElementById('confirm-modal').addEventListener('click', e => {
 document.addEventListener('keydown', e => {
   if (e.key === 'Escape') {
     if (document.getElementById('picker-modal').classList.contains('open')) closePicker();
+    if (document.getElementById('yt-modal').classList.contains('open')) closeYtPicker();
     if (document.getElementById('confirm-modal').classList.contains('open')) confirmResolve(false);
   }
 });
 
-// ── SchedPw ───────────────────────────────────────────────
-async function loadSchedPw() {
-  try {
-    const doc = await db.collection('settings').doc('app').get();
-    if (doc.exists && doc.data().schedPw) {
-      document.getElementById('sched-pw-input').value = doc.data().schedPw;
-    }
-  } catch(e) { /* ignore */ }
-}
-
-async function saveSchedPw() {
-  const pw = document.getElementById('sched-pw-input').value.trim();
-  if (!pw) { showToast('비밀번호를 입력하세요', 'warn'); return; }
-  try {
-    await db.collection('settings').doc('app').set({ schedPw: pw }, { merge: true });
-    showToast('저장되었습니다', 'success');
-  } catch(e) {
-    showToast('저장 실패: ' + e.message, 'error');
+// ── 접속 권한 표시 ────────────────────────────────────────
+async function showAuthStatus() {
+  const el = document.getElementById('auth-status');
+  const id = await FBGuard.ready();
+  if (id && id.admin) {
+    el.innerHTML = `구글 로그인: <b>${escHtml(id.email)}</b> · 편집 권한 있음`;
+  } else if (id) {
+    el.textContent = '입장 비밀번호로 접속 중 · 편집 권한 있음';
+  } else {
+    el.innerHTML = '<span style="color:var(--danger)">읽기 전용입니다.</span> ' +
+      'Cloudflare Pages에 SITE_PASSWORD / FIREBASE_SERVICE_ACCOUNT 시크릿이 설정돼 있는지 확인하세요.';
   }
 }
 
 // ── Init ──────────────────────────────────────────────────
 function initApp() {
   loadSection('dashboard');
-  loadSchedPw();
+  showAuthStatus();
 }
 
 checkAuth();
-if (sessionStorage.getItem('gwbs_auth') === '1') initApp();
 </script>
 </body>
 </html>

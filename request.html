@@ -4,9 +4,11 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1, user-scalable=0">
   <title>신청곡 신청 — 관산중학교 방송부</title>
+  <link rel="icon" type="image/svg+xml" href="favicon.svg">
   <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+KR:wght@300;400;500;600;700&display=swap" rel="stylesheet">
   <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore-compat.js"></script>
+  <script src="fb-guard.js"></script>
   <style>
     :root {
       --bg: #f0f2f8;
@@ -143,7 +145,6 @@
       font-size: 0.9rem;
       cursor: pointer;
     }
-    .back-link { display: inline-block; margin-top: 14px; color: var(--accent); font-size: 0.85rem; text-decoration: none; }
     #toast-container { position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%); z-index: 9999; display: flex; flex-direction: column; gap: 8px; align-items: center; pointer-events: none; }
     .toast { background: var(--surface); backdrop-filter: var(--blur); -webkit-backdrop-filter: var(--blur); border: 1px solid var(--border); border-radius: var(--r-pill); padding: 10px 18px; font-size: 0.85rem; display: flex; align-items: center; gap: 8px; pointer-events: auto; animation: toastIn 0.2s ease; white-space: nowrap; }
     .toast.out { animation: toastOut 0.2s ease forwards; }
@@ -155,10 +156,10 @@
 <div id="toast-container"></div>
 
 <nav>
-  <a class="nav-logo" href="index.html">
+  <div class="nav-logo">
     <img src="logo.png" alt="로고">
     <span>관산중학교 방송부</span>
-  </a>
+  </div>
   <button class="dark-toggle" onclick="toggleDark()" id="dark-btn">🌙 다크</button>
 </nav>
 
@@ -206,22 +207,11 @@
     <h2>신청 완료!</h2>
     <p>방송부에서 확인 후 방송에 사용될 예정입니다.</p>
     <button class="btn-again" onclick="resetForm()">다시 신청하기</button>
-    <br>
-    <a href="index.html" class="back-link">← 메인으로 돌아가기</a>
   </div>
 </div>
 
 <script>
-const firebaseConfig = {
-  apiKey: "AIzaSyBni9HsSfoY_e9oQkW5HDAwypaEXMXQAOo",
-  authDomain: "gwbs-3ec22.firebaseapp.com",
-  projectId: "gwbs-3ec22",
-  storageBucket: "gwbs-3ec22.firebasestorage.app",
-  messagingSenderId: "589081885767",
-  appId: "1:589081885767:web:c44ad52ac51f5773ec0562"
-};
-firebase.initializeApp(firebaseConfig);
-const db = firebase.firestore();
+const db = FBGuard.init();
 
 const DARK_KEY = 'gwbs_dark';
 if (localStorage.getItem(DARK_KEY) === '1') { document.body.classList.add('dark'); document.getElementById('dark-btn').textContent = '☀️ 라이트'; }
@@ -276,7 +266,7 @@ async function submitRequest() {
     document.getElementById('form-area').style.display = 'none';
     document.getElementById('success-area').style.display = 'block';
   } catch(e) {
-    showToast('신청 실패: ' + e.message, 'error');
+    showToast('신청 실패: ' + FBGuard.message(e), 'error');
     btn.disabled = false;
     btn.textContent = '신청하기';
   }

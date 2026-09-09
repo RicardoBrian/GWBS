@@ -10,6 +10,9 @@
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+KR:wght@400;500;600;700&display=swap" rel="stylesheet">
 <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-auth-compat.js"></script>
+<script src="fb-guard.js"></script>
+<script src="yt.js"></script>
 <style>
 /* ─── CSS custom properties ─────────────────────────────────── */
 :root {
@@ -762,6 +765,11 @@ body.dark #te-inner { background: rgba(22,24,40,0.97) !important; }
   overflow: hidden;
   text-overflow: ellipsis;
 }
+.song-artist-text {
+  font-weight: 400;
+  color: var(--text-3);
+}
+.song-artist-text::before { content: ' — '; }
 .song-item.is-done .song-title-text {
   text-decoration: line-through;
   color: var(--text-3);
@@ -1170,16 +1178,7 @@ body.dark #te-inner { background: rgba(22,24,40,0.97) !important; }
 
 <script>
 /* ─── Firebase ────────────────────────────────────────────────── */
-const firebaseConfig = {
-  apiKey: "AIzaSyBni9HsSfoY_e9oQkW5HDAwypaEXMXQAOo",
-  authDomain: "gwbs-3ec22.firebaseapp.com",
-  projectId: "gwbs-3ec22",
-  storageBucket: "gwbs-3ec22.firebasestorage.app",
-  messagingSenderId: "589081885767",
-  appId: "1:589081885767:web:c44ad52ac51f5773ec0562"
-};
-firebase.initializeApp(firebaseConfig);
-const db = firebase.firestore();
+const db = FBGuard.init({ auth: true });
 
 /* ─── Toast ───────────────────────────────────────────────────── */
 const TOAST_ICONS = { info: 'ℹ️', success: '✅', error: '❌', warn: '⚠️' };
@@ -1357,29 +1356,22 @@ let currentDateKey = null;
 let currentAttendance = {}; // docId → boolean (absent)
 let currentSearchTerm = '';
 let schedEditMode = false;
-let schedPw = null;
 let _teOverlayBgHandler = null; // stored to allow removal
 
-async function loadSchedPw() {
-  try {
-    const doc = await db.collection('settings').doc('app').get();
-    if (doc.exists && doc.data().schedPw) schedPw = doc.data().schedPw;
-  } catch(e) { /* ignore */ }
-}
-
+// 일정 편집용 별도 비밀번호는 없앴습니다. 사이트 입장 자체가 게이트라
+// (functions/_middleware.js) 여기까지 들어온 사람은 이미 방송부원입니다.
 function toggleSchedEdit() {
   if (schedEditMode) { exitSchedEdit(); return; }
   showModal(
     '방송 관리 모드',
-    '방송 일정을 수정하려면 비밀번호를 입력하세요.',
+    '방송 일정을 수정할 수 있는 상태로 전환합니다.',
     () => {
       schedEditMode = true;
       document.getElementById('sched-edit-toolbar').style.display = 'block';
       document.getElementById('sched-edit-btn').innerHTML = '<svg width="14" height="14" style="flex-shrink:0"><use href="#ic-close"/></svg> <span class="sched-btn-text">관리 종료</span>';
       if (currentDateKey) loadBroadcastForDate(currentDateKey);
       openTaskEditModal(null, currentDateKey);
-    },
-    schedPw || '9600'
+    }
   );
 }
 
@@ -1571,13 +1563,11 @@ async function saveTaskEdit(dateKey, newTask, isNew) {
     showToast('저장되었습니다', 'success');
     loadBroadcastForDate(dateKey);
   } catch(e) {
-    showToast('저장 실패: ' + e.message, 'error');
+    showToast('저장 실패: ' + FBGuard.message(e), 'error');
   }
 }
 
 async function deleteTask(dateKey, taskId) {
-  // Already authenticated via edit mode — no need to re-enter password
-  const pw = schedEditMode ? null : (schedPw || '9600');
   showModal('일정 삭제', '이 일정을 삭제하시겠습니까?', async () => {
     try {
       const docRef = db.collection('broadcasts').doc(dateKey);
@@ -1588,9 +1578,9 @@ async function deleteTask(dateKey, taskId) {
       showToast('삭제되었습니다', 'success');
       loadBroadcastForDate(dateKey);
     } catch(e) {
-      showToast('삭제 실패: ' + e.message, 'error');
+      showToast('삭제 실패: ' + FBGuard.message(e), 'error');
     }
-  }, pw);
+  });
 }
 
 async function loadBroadcastDates() {
@@ -1671,7 +1661,7 @@ async function loadBroadcastForDate(dateKey) {
     applyNameHighlight();
   } catch (e) {
     console.error(e);
-    showToast('방송 일정 로드 오류: ' + e.message, 'error');
+    showToast('방송 일정 로드 오류: ' + FBGuard.message(e), 'error');
     taskList.innerHTML = '<div class="empty-state"><span class="empty-icon">⚠️</span>일정을 불러오지 못했습니다.</div>';
   }
 }
@@ -1803,7 +1793,7 @@ async function toggleAbsent(tagEl, dateKey, taskId, period, name) {
     );
   } catch (e) {
     console.error(e);
-    showToast('출결 저장 실패: ' + e.message, 'error');
+    showToast('출결 저장 실패: ' + FBGuard.message(e), 'error');
   } finally {
     tagEl.style.opacity = '';
     tagEl.style.pointerEvents = '';
@@ -1845,7 +1835,7 @@ function initSongs() {
       renderSongList(document.getElementById('done-list'), done, true);
     }, err => {
       console.error(err);
-      showToast('신청곡 로드 오류: ' + err.message, 'error');
+      showToast('신청곡 로드 오류: ' + FBGuard.message(err), 'error');
     });
 }
 
@@ -1873,7 +1863,7 @@ function renderSongList(container, items, isDone) {
         await db.collection('songs').doc(item.id).update({ isDone: !isDone });
       } catch (e) {
         console.error(e);
-        showToast('업데이트 실패: ' + e.message, 'error');
+        showToast('업데이트 실패: ' + FBGuard.message(e), 'error');
         btn.disabled = false;
       }
     });
@@ -1884,12 +1874,24 @@ function renderSongList(container, items, isDone) {
     const title = document.createElement('div');
     title.className = 'song-title-text';
     title.textContent = item.song || '(제목 없음)';
+    if (item.artist) {
+      const artist = document.createElement('span');
+      artist.className = 'song-artist-text';
+      artist.textContent = item.artist;
+      title.appendChild(artist);
+    }
 
     const meta = document.createElement('div');
     meta.className = 'song-meta-text';
-    const parts = [item.classInfo, item.name].filter(Boolean);
-    if (item.artist) parts.push(item.artist);
-    meta.textContent = parts.join(' · ');
+    const who = [item.classInfo, item.name].filter(Boolean).join(' ');
+    meta.textContent = who ? who + ' 신청' : '';
+    if (item.videoId) {
+      const mark = document.createElement('span');
+      mark.textContent = ' ▶';
+      mark.title = '재생목록에 포함됩니다';
+      mark.style.cssText = 'color:var(--accent);font-size:11px;';
+      meta.appendChild(mark);
+    }
 
     // Playlist checkbox
     const chk = document.createElement('input');
@@ -1897,6 +1899,7 @@ function renderSongList(container, items, isDone) {
     chk.className = 'song-select-chk';
     chk.dataset.song = item.song || '';
     chk.dataset.artist = item.artist || '';
+    chk.dataset.videoId = item.videoId || '';
     chk.setAttribute('aria-label', `${item.song} 선택`);
     chk.style.cssText = 'width:16px;height:16px;cursor:pointer;accent-color:var(--accent);flex-shrink:0;margin-right:2px;';
 
@@ -1913,7 +1916,7 @@ function renderSongList(container, items, isDone) {
 document.getElementById('reset-songs-btn').addEventListener('click', () => {
   showModal(
     '전체 초기화',
-    '모든 신청곡을 삭제합니다. 관리자 비밀번호를 입력하세요.',
+    '모든 신청곡을 삭제합니다. 되돌릴 수 없습니다.',
     async () => {
       try {
         const snap = await db.collection('songs').get();
@@ -1924,10 +1927,9 @@ document.getElementById('reset-songs-btn').addEventListener('click', () => {
         showToast('신청곡이 모두 삭제되었습니다.', 'success');
       } catch (e) {
         console.error(e);
-        showToast('초기화 실패: ' + e.message, 'error');
+        showToast('초기화 실패: ' + FBGuard.message(e), 'error');
       }
-    },
-    schedPw || '9600'
+    }
   );
 });
 
@@ -1958,7 +1960,7 @@ async function loadManuals() {
     });
   } catch (e) {
     console.error(e);
-    showToast('매뉴얼 로드 오류: ' + e.message, 'error');
+    showToast('매뉴얼 로드 오류: ' + FBGuard.message(e), 'error');
     container.innerHTML = '<div class="empty-state"><span class="empty-icon">⚠️</span>매뉴얼을 불러오지 못했습니다.</div>';
   }
 }
@@ -2088,17 +2090,35 @@ function showModal(title, desc, onConfirm, requiredPw) {
 
 /* ─── YouTube playlist ────────────────────────────────────────── */
 function openYouTubePlaylist() {
-  const checks = document.querySelectorAll('.song-select-chk:checked');
+  const checks = [...document.querySelectorAll('.song-select-chk:checked')];
   if (!checks.length) { showToast('재생할 곡을 선택하세요.', 'warn'); return; }
+
+  const ids = [];
+  const missing = [];
   checks.forEach(chk => {
-    const q = encodeURIComponent([chk.dataset.song, chk.dataset.artist].filter(Boolean).join(' '));
-    window.open('https://music.youtube.com/search?q=' + q, '_blank', 'noopener');
+    if (chk.dataset.videoId) ids.push(chk.dataset.videoId);
+    else missing.push(chk.dataset.song || '(제목 없음)');
   });
+
+  if (!ids.length) {
+    showToast('선택한 곡에 연결된 영상이 없습니다. 관리자 페이지에서 유튜브 링크를 먼저 연결해 주세요.', 'warn');
+    return;
+  }
+
+  // 브라우저는 클릭 한 번에 팝업 하나만 허용하므로 탭 하나에 전부 담는다.
+  window.open(YTLink.playlistUrl(ids), '_blank', 'noopener');
+
+  if (missing.length) {
+    showToast(`${ids.length}곡으로 재생목록을 만들었습니다. 링크가 없는 ${missing.length}곡은 제외됐습니다: ${missing.join(', ')}`, 'warn');
+  } else if (ids.length > 50) {
+    showToast('재생목록은 최대 50곡까지만 담깁니다.', 'warn');
+  } else {
+    showToast(`${ids.length}곡으로 재생목록을 만들었습니다.`, 'success');
+  }
 }
 
 /* ─── Boot ────────────────────────────────────────────────────── */
 loadBroadcastDates();
-loadSchedPw();
 initSongs(); // start realtime listener immediately
 </script>
 </body>
