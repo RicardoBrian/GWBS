@@ -50,7 +50,11 @@ Vercel이 화면에 필요한 DNS 값을 보여 줍니다.
 
 ---
 
-### 방법 2 — Cloudflare Pages로 호스팅까지 옮기기
+### 방법 2 — Cloudflare Pages로 호스팅까지 옮기기  ← **이제 이 방식이 필요합니다**
+
+> 입장 게이트(`functions/`)와 관리자 구글 로그인은 Cloudflare Pages에서만
+> 동작합니다. Vercel은 `functions/` 디렉터리를 실행하지 않으므로,
+> Vercel에 그대로 두면 **사이트가 아무 보호 없이 열립니다.**
 
 **1) 프로젝트 생성**
 
@@ -175,3 +179,92 @@ curl -s -o /dev/null -w "%{http_code}\n" \
 
 **할당량**: 검색 1회 = 100유닛, 기본 한도 10,000유닛/일 → **하루 100곡**.
 초과하면 자동으로 위의 클립보드 방식 안내로 넘어갑니다.
+
+---
+
+## E. 접속 권한 구조
+
+| 경로 | 누가 | 어떻게 |
+|------|------|--------|
+| `/request.html` | 학생 전체 | 게이트 예외 (공개) |
+| `/` `/index.html` 등 | 방송부원 | **입장 비밀번호** (`SITE_PASSWORD` 시크릿) |
+| `/admin.html` | 본인만 | **Cloudflare Access → 구글 로그인** |
+
+별도의 "방송 관리 비밀번호"는 없앴습니다. 사이트 입장 자체가 게이트라
+들어온 사람은 이미 방송부원이기 때문입니다.
+
+### E-1. 입장 비밀번호 (`SITE_PASSWORD`)
+
+Cloudflare Pages 프로젝트 → **Settings → Variables and Secrets**
+→ **Add** → 유형 **Secret**
+
+| 이름 | 값 |
+|------|-----|
+| `SITE_PASSWORD` | 방송부원에게 알려 줄 입장 비밀번호 |
+
+- 코드에 들어가지 않습니다. 바꿔도 재배포가 필요 없습니다.
+- 통과하면 30일짜리 서명 쿠키(HttpOnly·Secure)가 발급됩니다.
+  비밀번호를 모르면 쿠키를 위조할 수 없습니다(HMAC-SHA256).
+- ⚠️ **이 시크릿을 설정하지 않으면 게이트가 동작하지 않고 사이트가 그냥 열립니다.**
+  (배포 직후 스스로 잠겨 버리는 사고를 막기 위한 기본 동작입니다.)
+
+### E-2. Firestore 쓰기 권한 (`FIREBASE_SERVICE_ACCOUNT`)
+
+게이트를 통과한 브라우저만 Firestore에 쓸 수 있게 하려면, Cloudflare가
+Firebase 커스텀 토큰을 발급해야 합니다.
+
+1. Firebase 콘솔 → 프로젝트 설정 → **서비스 계정** → **새 비공개 키 생성**
+   → JSON 파일 다운로드
+2. Pages → Settings → Variables and Secrets → **Secret** 추가
+
+| 이름 | 값 |
+|------|-----|
+| `FIREBASE_SERVICE_ACCOUNT` | 내려받은 JSON 파일 **전체 내용**을 그대로 붙여넣기 |
+
+> 이 키는 Firebase 전체 권한을 가집니다. 절대 저장소에 커밋하지 마세요.
+
+### E-3. 관리자 페이지 구글 로그인 (Cloudflare Access)
+
+1. Cloudflare 대시보드 → **Zero Trust** → 최초 1회 팀 이름 설정 (Free 플랜, 50명까지)
+2. **Settings → Authentication → Login methods** → **Add new** → **Google**
+3. **Access → Applications → Add an application → Self-hosted**
+   - Application name: `GWBS 관리자`
+   - Subdomain / Domain: `gwbs` / `kakainfo.com`
+   - **Path**: `admin.html`
+4. Policy 추가 — Action **Allow**, Include **Emails** → 본인 Gmail 주소
+5. 저장
+
+이후 `gwbs.kakainfo.com/admin.html` 은 구글 로그인 화면을 거칩니다.
+로그인하면 비밀번호 없이 바로 열리고, 설정 탭의 **접속 권한** 카드에
+로그인한 계정이 표시됩니다.
+
+> Access를 아직 붙이지 않았다면 관리자 페이지는 기존의 페이지 내 비밀번호
+> 화면으로 폴백합니다. 무방비로 열리지는 않지만, 그 비밀번호는 소스에
+> 그대로 노출돼 있으니 Access 설정을 마치는 편이 좋습니다.
+
+### E-4. 적용 순서
+
+시크릿이 없으면 편집이 막히므로 아래 순서를 지켜 주세요.
+
+1. `FIREBASE_SERVICE_ACCOUNT`, `SITE_PASSWORD` 시크릿 등록
+2. 재배포 (시크릿은 새 배포부터 적용됩니다)
+3. `firestore.rules` 게시 — `firebase deploy --only firestore:rules`
+4. 사이트 접속 → 입장 비밀번호 확인 → 일정 수정이 되는지 확인
+5. Cloudflare Access 설정 → `/admin.html` 구글 로그인 확인
+
+3번을 2번보다 먼저 하면 **그 사이 모든 편집이 막힙니다.** 읽기는 계속 됩니다.
+
+### E-5. 이 구조가 막는 것과 못 막는 것
+
+**막습니다**
+- 신청곡 링크를 타고 들어온 학생이 방송 페이지를 보는 것
+- 데이터 변조 — 일정·명단·출결·매뉴얼 쓰기는 전부 게이트 통과자만
+- 신청곡 대량 등록 — 규칙에서 길이와 형식을 검사
+
+**못 막습니다**
+- **데이터 읽기.** Firestore 읽기는 여전히 공개입니다. 신청 페이지가
+  공개라 거기서 프로젝트 ID와 API 키를 얻을 수 있고, 그걸로 방송 일정·
+  학생 명단·출결을 조회할 수 있습니다.
+- 읽기까지 막으려면 방송부원 전원이 구글 로그인을 해야 합니다
+  (`firestore.rules` 의 `allow read: if true` 를 `if staff()` 로 바꾸고
+  각 페이지에서 로그인을 요구하는 구조).

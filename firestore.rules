@@ -7,12 +7,22 @@ rules_version = '2';
 //      · CLI:  firebase deploy --only firestore:rules
 //      · 콘솔: Firebase 콘솔 → Firestore Database → 규칙 → 붙여넣기 → 게시
 //
-// 아래 규칙에는 만료 시각(request.time < timestamp.date(...))이 없습니다.
-// Firebase 콘솔의 "테스트 모드"로 만든 기본 규칙은 30일 뒤 모든 요청을
-// 차단하므로, 그 규칙이 남아 있으면 앱 전체가 permission-denied로 죽습니다.
+// 읽기는 공개, 쓰기는 "입장 비밀번호를 통과한 사람"만 가능합니다.
+// 그 판단은 Cloudflare Pages Function(functions/_middleware.js)이 발급하는
+// Firebase 커스텀 토큰의 claims 로 전달됩니다.
+//   · staff — 입장 비밀번호를 통과함
+//   · admin — Cloudflare Access 구글 로그인을 통과함
+// 익명 로그인은 API 키만 있으면 누구나 되므로 여기서는 쓰지 않습니다.
 
 service cloud.firestore {
   match /databases/{database}/documents {
+
+    function staff() {
+      return request.auth != null && request.auth.token.staff == true;
+    }
+    function admin() {
+      return request.auth != null && request.auth.token.admin == true;
+    }
 
     // 연결 진단용 프로브 (fb-guard.js). 읽기만 허용, 실제 문서는 없음.
     match /__health/{doc} {
@@ -20,15 +30,32 @@ service cloud.firestore {
       allow write: if false;
     }
 
-    // 방송 일정 / 학생 명단 / 출결 / 신청곡 / 매뉴얼 / 앱 설정
-    // 현재 앱은 Firebase Auth를 쓰지 않고 화면 단 비밀번호로만 관리 모드를
-    // 구분하므로, 기존 GAS 앱과 동일하게 공개 읽기·쓰기를 유지합니다.
-    match /broadcasts/{doc}  { allow read, write: if true; }
-    match /students/{doc}    { allow read, write: if true; }
-    match /attendance/{doc}  { allow read, write: if true; }
-    match /songs/{doc}       { allow read, write: if true; }
-    match /manuals/{doc}     { allow read, write: if true; }
-    match /settings/{doc}    { allow read, write: if true; }
+    match /broadcasts/{doc} { allow read: if true; allow write: if staff(); }
+    match /students/{doc}   { allow read: if true; allow write: if staff(); }
+    match /attendance/{doc} { allow read: if true; allow write: if staff(); }
+    match /manuals/{doc}    { allow read: if true; allow write: if staff(); }
+
+    // 앱 설정은 관리자(구글 로그인)만
+    match /settings/{doc}   { allow read: if true; allow write: if admin(); }
+
+    // 신청곡: 학생이 신청 페이지에서 직접 만드는 유일한 문서.
+    // 만들기는 공개지만, 형식을 검사해 장난성 대량 등록을 막습니다.
+    match /songs/{doc} {
+      allow read: if true;
+      allow create: if isSongRequest();
+      allow update, delete: if staff();
+    }
+
+    function isSongRequest() {
+      let d = request.resource.data;
+      return d.song is string && d.song.size() > 0 && d.song.size() <= 100
+          && d.name is string && d.name.size() <= 20
+          && (!('artist' in d) || (d.artist is string && d.artist.size() <= 60))
+          && (!('grade' in d) || (d.grade is string && d.grade.size() <= 10))
+          && (!('classInfo' in d) || (d.classInfo is string && d.classInfo.size() <= 20))
+          && d.isDone == false
+          && !('videoId' in d);   // 영상 연결은 방송부만
+    }
 
     // 위에 명시하지 않은 경로는 모두 차단
     match /{document=**} {

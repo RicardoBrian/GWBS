@@ -1,1 +1,4 @@
 .claude/
+*serviceAccount*.json
+*service-account*.json
+.gate-preview.html

@@ -8,6 +8,7 @@
   <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+KR:wght@300;400;500;600;700&display=swap" rel="stylesheet">
   <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-auth-compat.js"></script>
   <script src="fb-guard.js"></script>
   <script src="yt.js"></script>
   <style>
@@ -725,16 +726,10 @@
       </div>
       <div class="card" style="margin-top:20px;">
         <div style="margin-bottom:12px;">
-          <h3 style="font-size:1rem;margin:0 0 4px;">방송 관리 비밀번호</h3>
-          <div class="s-sub">메인 페이지에서 방송 일정 수정 시 사용하는 비밀번호</div>
+          <h3 style="font-size:1rem;margin:0 0 4px;">접속 권한</h3>
+          <div class="s-sub">사이트 입장 비밀번호와 관리자 로그인은 Cloudflare에서 관리합니다</div>
         </div>
-        <div style="display:flex;gap:10px;align-items:end;">
-          <div style="flex:1;">
-            <label class="lbl">비밀번호</label>
-            <input class="inp" type="text" id="sched-pw-input" placeholder="방송 관리 비밀번호">
-          </div>
-          <button class="btn primary" onclick="saveSchedPw()">저장</button>
-        </div>
+        <div class="s-sub" id="auth-status">확인 중…</div>
       </div>
     </section>
 
@@ -963,7 +958,7 @@
 
 <script>
 // ── Firebase init ─────────────────────────────────────────
-const db = FBGuard.init();
+const db = FBGuard.init({ auth: true });
 
 // ── Dark mode ─────────────────────────────────────────────
 function toggleDark() {
@@ -987,9 +982,24 @@ function showToast(message, type = 'info') {
   }, 3000);
 }
 
-// ── Password ──────────────────────────────────────────────
-function checkAuth() {
-  if (sessionStorage.getItem('gwbs_auth') === '1') return;
+// ── Auth ──────────────────────────────────────────────────
+// Cloudflare Access(구글 로그인)가 설정돼 있으면 그쪽이 이미 신원을
+// 확인했으므로 비밀번호 화면을 건너뜁니다. Access를 아직 붙이지 않은
+// 상태에서 관리자 페이지가 무방비로 열리지 않도록, 그때만 아래의
+// 비밀번호 화면으로 되돌아갑니다.
+async function checkAuth() {
+  if (sessionStorage.getItem('gwbs_auth') === '1') { initApp(); return; }
+  try {
+    const res = await fetch('/api/me', { credentials: 'same-origin' });
+    if (res.ok) {
+      const me = await res.json();
+      if (me.email) {
+        sessionStorage.setItem('gwbs_auth', '1');
+        initApp();
+        return;
+      }
+    }
+  } catch (e) { /* Cloudflare 밖에서 실행 중 — 아래 비밀번호로 폴백 */ }
   document.getElementById('pw-modal').classList.add('open');
   setTimeout(() => document.getElementById('pw-input').focus(), 100);
 }
@@ -1681,35 +1691,27 @@ document.addEventListener('keydown', e => {
   }
 });
 
-// ── SchedPw ───────────────────────────────────────────────
-async function loadSchedPw() {
-  try {
-    const doc = await db.collection('settings').doc('app').get();
-    if (doc.exists && doc.data().schedPw) {
-      document.getElementById('sched-pw-input').value = doc.data().schedPw;
-    }
-  } catch(e) { /* ignore */ }
-}
-
-async function saveSchedPw() {
-  const pw = document.getElementById('sched-pw-input').value.trim();
-  if (!pw) { showToast('비밀번호를 입력하세요', 'warn'); return; }
-  try {
-    await db.collection('settings').doc('app').set({ schedPw: pw }, { merge: true });
-    showToast('저장되었습니다', 'success');
-  } catch(e) {
-    showToast('저장 실패: ' + FBGuard.message(e), 'error');
+// ── 접속 권한 표시 ────────────────────────────────────────
+async function showAuthStatus() {
+  const el = document.getElementById('auth-status');
+  const id = await FBGuard.ready();
+  if (id && id.admin) {
+    el.innerHTML = `구글 로그인: <b>${escHtml(id.email)}</b> · 편집 권한 있음`;
+  } else if (id) {
+    el.textContent = '입장 비밀번호로 접속 중 · 편집 권한 있음';
+  } else {
+    el.innerHTML = '<span style="color:var(--danger)">읽기 전용입니다.</span> ' +
+      'Cloudflare Pages에 SITE_PASSWORD / FIREBASE_SERVICE_ACCOUNT 시크릿이 설정돼 있는지 확인하세요.';
   }
 }
 
 // ── Init ──────────────────────────────────────────────────
 function initApp() {
   loadSection('dashboard');
-  loadSchedPw();
+  showAuthStatus();
 }
 
 checkAuth();
-if (sessionStorage.getItem('gwbs_auth') === '1') initApp();
 </script>
 </body>
 </html>

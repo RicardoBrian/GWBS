@@ -6,6 +6,7 @@
   <title>데이터 마이그레이션 도구</title>
   <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
   <script src="fb-guard.js"></script>
   <style>
     body { font-family: monospace; padding: 32px; max-width: 800px; margin: 0 auto; background: #f9f9f9; }
@@ -24,7 +25,7 @@
   <pre id="log">대기 중...</pre>
 
   <script>
-    const db = FBGuard.init();
+    const db = FBGuard.init({ auth: true });
 
     // CSV 원본 데이터 (파싱 완료)
     const RAW_ROWS = [

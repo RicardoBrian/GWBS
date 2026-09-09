@@ -10,6 +10,7 @@
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+KR:wght@400;500;600;700&display=swap" rel="stylesheet">
 <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-auth-compat.js"></script>
 <script src="fb-guard.js"></script>
 <script src="yt.js"></script>
 <style>
@@ -1177,7 +1178,7 @@ body.dark #te-inner { background: rgba(22,24,40,0.97) !important; }
 
 <script>
 /* ─── Firebase ────────────────────────────────────────────────── */
-const db = FBGuard.init();
+const db = FBGuard.init({ auth: true });
 
 /* ─── Toast ───────────────────────────────────────────────────── */
 const TOAST_ICONS = { info: 'ℹ️', success: '✅', error: '❌', warn: '⚠️' };
@@ -1355,29 +1356,22 @@ let currentDateKey = null;
 let currentAttendance = {}; // docId → boolean (absent)
 let currentSearchTerm = '';
 let schedEditMode = false;
-let schedPw = null;
 let _teOverlayBgHandler = null; // stored to allow removal
 
-async function loadSchedPw() {
-  try {
-    const doc = await db.collection('settings').doc('app').get();
-    if (doc.exists && doc.data().schedPw) schedPw = doc.data().schedPw;
-  } catch(e) { /* ignore */ }
-}
-
+// 일정 편집용 별도 비밀번호는 없앴습니다. 사이트 입장 자체가 게이트라
+// (functions/_middleware.js) 여기까지 들어온 사람은 이미 방송부원입니다.
 function toggleSchedEdit() {
   if (schedEditMode) { exitSchedEdit(); return; }
   showModal(
     '방송 관리 모드',
-    '방송 일정을 수정하려면 비밀번호를 입력하세요.',
+    '방송 일정을 수정할 수 있는 상태로 전환합니다.',
     () => {
       schedEditMode = true;
       document.getElementById('sched-edit-toolbar').style.display = 'block';
       document.getElementById('sched-edit-btn').innerHTML = '<svg width="14" height="14" style="flex-shrink:0"><use href="#ic-close"/></svg> <span class="sched-btn-text">관리 종료</span>';
       if (currentDateKey) loadBroadcastForDate(currentDateKey);
       openTaskEditModal(null, currentDateKey);
-    },
-    schedPw || '9600'
+    }
   );
 }
 
@@ -1574,8 +1568,6 @@ async function saveTaskEdit(dateKey, newTask, isNew) {
 }
 
 async function deleteTask(dateKey, taskId) {
-  // Already authenticated via edit mode — no need to re-enter password
-  const pw = schedEditMode ? null : (schedPw || '9600');
   showModal('일정 삭제', '이 일정을 삭제하시겠습니까?', async () => {
     try {
       const docRef = db.collection('broadcasts').doc(dateKey);
@@ -1588,7 +1580,7 @@ async function deleteTask(dateKey, taskId) {
     } catch(e) {
       showToast('삭제 실패: ' + FBGuard.message(e), 'error');
     }
-  }, pw);
+  });
 }
 
 async function loadBroadcastDates() {
@@ -1924,7 +1916,7 @@ function renderSongList(container, items, isDone) {
 document.getElementById('reset-songs-btn').addEventListener('click', () => {
   showModal(
     '전체 초기화',
-    '모든 신청곡을 삭제합니다. 관리자 비밀번호를 입력하세요.',
+    '모든 신청곡을 삭제합니다. 되돌릴 수 없습니다.',
     async () => {
       try {
         const snap = await db.collection('songs').get();
@@ -1937,8 +1929,7 @@ document.getElementById('reset-songs-btn').addEventListener('click', () => {
         console.error(e);
         showToast('초기화 실패: ' + FBGuard.message(e), 'error');
       }
-    },
-    schedPw || '9600'
+    }
   );
 });
 
@@ -2128,7 +2119,6 @@ function openYouTubePlaylist() {
 
 /* ─── Boot ────────────────────────────────────────────────────── */
 loadBroadcastDates();
-loadSchedPw();
 initSongs(); // start realtime listener immediately
 </script>
 </body>

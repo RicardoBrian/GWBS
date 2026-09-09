@@ -45,9 +45,17 @@ window.FB_CONFIG = {
   /** 오류 객체 → 화면에 띄울 한국어 메시지 */
   function message(e) {
     var c = code(e);
+    if (c === 'permission-denied' && !identity) {
+      return '쓰기 권한이 없습니다. 페이지를 새로고침해 다시 입장하거나, ' +
+             '관리자 페이지는 구글 로그인이 되어 있는지 확인하세요.';
+    }
     if (CODE_MSG[c]) return CODE_MSG[c];
     return (e && e.message) ? e.message : '알 수 없는 오류';
   }
+
+  // 게이트/Access 를 통과해 얻은 신원. null 이면 읽기 전용.
+  var identity = null;
+  var authReady = Promise.resolve(null);
 
   var bannerEl = null;
 
@@ -117,8 +125,56 @@ window.FB_CONFIG = {
     return proxy;
   }
 
-  /** SDK 로드 확인 → 앱 초기화 → 진단. 실패해도 항상 쓸 수 있는 핸들을 반환. */
-  function init() {
+  /**
+   * Cloudflare Function이 발급한 커스텀 토큰으로 Firebase에 로그인한다.
+   * 입장 비밀번호(또는 Access 구글 로그인)를 통과한 브라우저만 토큰을
+   * 받을 수 있으므로, Firestore 쓰기 권한이 게이트와 묶입니다.
+   *
+   * 로그인에 실패해도 읽기는 그대로 동작합니다(규칙상 읽기는 공개).
+   */
+  async function signIn() {
+    if (!firebase.auth) {
+      console.warn('[FBGuard] firebase-auth-compat.js 가 없어 편집 권한을 받을 수 없습니다.');
+      return null;
+    }
+    var res;
+    try {
+      res = await fetch('/api/token', { credentials: 'same-origin' });
+    } catch (e) {
+      console.warn('[FBGuard] 토큰 요청 실패 (로컬 실행?)', e);
+      return null;
+    }
+    if (res.status === 404) return null;          // Cloudflare Pages 밖에서 실행 중
+    if (!res.ok) {
+      var body = await res.json().catch(function () { return {}; });
+      if (body.error === 'no_service_account') {
+        banner('Firebase 서비스 계정이 설정되지 않아 편집이 불가능합니다. ' +
+               'Cloudflare Pages 설정에서 FIREBASE_SERVICE_ACCOUNT 시크릿을 확인하세요.');
+      } else if (res.status === 401) {
+        banner('편집 권한을 받지 못했습니다(읽기 전용). 입장 인증이 만료됐다면 새로고침해 ' +
+               '다시 입장하시고, 그래도 같다면 Cloudflare Pages에 SITE_PASSWORD 시크릿이 ' +
+               '설정돼 있는지 확인하세요.');
+      }
+      return null;
+    }
+    var data = await res.json();
+    try {
+      await firebase.auth().signInWithCustomToken(data.token);
+    } catch (e) {
+      console.error('[FBGuard] signInWithCustomToken 실패', e);
+      banner('Firebase 로그인에 실패했습니다: ' + message(e));
+      return null;
+    }
+    identity = { staff: true, admin: !!data.admin, email: data.email || null };
+    return identity;
+  }
+
+  /**
+   * SDK 로드 확인 → 앱 초기화 → 진단. 실패해도 항상 쓸 수 있는 핸들을 반환.
+   * options.auth 가 true 인 페이지만 편집 권한(커스텀 토큰)을 요청합니다.
+   * 학생용 신청 페이지는 신청곡 등록만 하면 되고 그건 규칙상 공개입니다.
+   */
+  function init(options) {
     if (typeof firebase === 'undefined' || !firebase.initializeApp) {
       var msg = 'Firebase SDK를 불러오지 못했습니다. 네트워크 상태를 확인하거나, ' +
                 '광고 차단 확장 프로그램·학교 방화벽이 gstatic.com을 막고 있는지 확인하세요.';
@@ -129,6 +185,7 @@ window.FB_CONFIG = {
       if (!firebase.apps.length) firebase.initializeApp(window.FB_CONFIG);
       var db = firebase.firestore();
       check(db);
+      if (options && options.auth) authReady = signIn();
       return db;
     } catch (e) {
       console.error('[FBGuard] init failed', e);
@@ -137,5 +194,12 @@ window.FB_CONFIG = {
     }
   }
 
-  window.FBGuard = { init: init, check: check, message: message, banner: banner, offlineStub: offlineStub };
+  window.FBGuard = {
+    init: init, check: check, message: message, banner: banner, offlineStub: offlineStub,
+    /** 로그인이 끝날 때까지 기다린다. 결과는 신원 객체 또는 null. */
+    ready: function () { return authReady; },
+    /** 현재 신원 (null = 읽기 전용) */
+    identity: function () { return identity; },
+    isAdmin: function () { return !!(identity && identity.admin); }
+  };
 })();
