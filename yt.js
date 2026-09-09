@@ -8,7 +8,7 @@
      키 발급 방법은 DEPLOY.md 의 “D. 유튜브 검색 자동화” 참고.
    ───────────────────────────────────────────────────────────── */
 
-window.YT_API_KEY = "";
+window.YT_API_KEY = "AIzaSyAg3694nxyBTvzjW6qjG5NsdgOXYP9TJJY";
 
 (function () {
   'use strict';
