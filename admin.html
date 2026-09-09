@@ -9,6 +9,7 @@
   <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore-compat.js"></script>
   <script src="fb-guard.js"></script>
+  <script src="yt.js"></script>
   <style>
     /* ── Design tokens ───────────────────────────────────── */
     :root {
@@ -381,6 +382,7 @@
     .song-info { flex: 1; min-width: 0; }
     .song-title { font-size: 14px; font-weight: 600; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
     .song-meta { font-size: 12px; color: var(--text-3); margin-top: 2px; }
+    .song-artist { font-weight: 400; color: var(--text-3); }
 
     /* ── Modal overlay ───────────────────────────────────── */
     .modal-overlay {
@@ -431,6 +433,32 @@
       transition: all var(--dur) var(--ease);
     }
     #picker-modal .pick-chip:hover { background: var(--accent); color: #fff; border-color: transparent; }
+
+    /* ── YouTube link picker ─────────────────────────────── */
+    #yt-modal .modal-box { max-width: 560px; }
+    .yt-badge {
+      display: inline-flex; align-items: center; gap: 4px; flex-shrink: 0;
+      padding: 3px 9px; border-radius: var(--radius-pill);
+      font-size: 11px; font-weight: 600; letter-spacing: -0.01em;
+      border: 1px solid var(--border); background: var(--surface-2); color: var(--text-3);
+      cursor: pointer; transition: all var(--dur) var(--ease);
+    }
+    .yt-badge:hover { border-color: var(--accent); color: var(--accent); }
+    .yt-badge.linked { background: rgba(52,199,89,0.14); border-color: transparent; color: #248a3d; }
+    body.dark .yt-badge.linked { color: #6ee787; }
+    .yt-result {
+      display: flex; gap: 12px; align-items: center; width: 100%; text-align: left;
+      padding: 8px; border-radius: var(--radius); cursor: pointer;
+      background: var(--glass); border: 1px solid var(--border);
+      transition: all var(--dur) var(--ease); margin-bottom: 8px;
+    }
+    .yt-result:hover { border-color: var(--accent); box-shadow: var(--shadow-sm); }
+    .yt-result img { width: 96px; height: 54px; object-fit: cover; border-radius: 8px; flex-shrink: 0; background: var(--surface-2); }
+    .yt-result-title { font-size: 13px; font-weight: 600; color: var(--text); line-height: 1.35; }
+    .yt-result-ch { font-size: 12px; color: var(--text-3); margin-top: 3px; }
+    .yt-manual { display: flex; gap: 8px; margin-top: 6px; }
+    .yt-manual .inp { flex: 1; min-width: 0; }
+    .yt-hint { font-size: 12px; color: var(--text-3); line-height: 1.6; }
 
     /* ── Confirm modal ───────────────────────────────────── */
     #confirm-modal .confirm-actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 20px; }
@@ -584,6 +612,27 @@
     </div>
     <p style="font-size:13px;color:var(--text-3);margin-bottom:4px;">클릭하면 입력란에 추가됩니다</p>
     <div class="student-pick-list" id="picker-list"></div>
+  </div>
+</div>
+
+<!-- ── YouTube link picker modal ───────────────────────── -->
+<div class="modal-overlay" id="yt-modal">
+  <div class="modal-box">
+    <div class="modal-head">
+      <h3>유튜브 링크 연결</h3>
+      <button class="icon-btn modal-close" onclick="closeYtPicker()">
+        <svg width="17" height="17"><use href="#ic-close"/></svg>
+      </button>
+    </div>
+    <p class="yt-hint" id="yt-subject" style="margin-bottom:14px;"></p>
+    <div id="yt-results" style="margin-bottom:14px;"></div>
+    <p class="yt-hint" id="yt-fallback-hint"></p>
+    <div class="yt-manual">
+      <input class="inp" id="yt-manual-url" placeholder="유튜브 주소 붙여넣기"
+             onkeydown="if(event.key==='Enter')ytSaveManual()">
+      <button class="btn ghost sm" onclick="ytPasteFromClipboard()" title="클립보드에서 붙여넣기">📋</button>
+      <button class="btn primary sm" onclick="ytSaveManual()">연결</button>
+    </div>
   </div>
 </div>
 
@@ -1308,7 +1357,10 @@ function loadSongs() {
     }, e => showToast('신청곡 로딩 오류: ' + FBGuard.message(e), 'error'));
 }
 
+let songsAll = [];
+
 function renderSongs(all) {
+  songsAll = all;
   const pending = all.filter(s => !s.isDone);
   const done = all.filter(s => s.isDone);
   const pendEl = document.getElementById('songs-pending');
@@ -1320,11 +1372,16 @@ function renderSongs(all) {
 }
 
 function songItemHtml(s) {
+  const linked = !!s.videoId;
   return `<div class="song-item">
     <div class="song-info">
-      <div class="song-title">${escHtml(s.song || '')}</div>
-      <div class="song-meta">${escHtml(s.classInfo || '')} · ${escHtml(s.name || '')}${s.artist ? ' · ' + escHtml(s.artist) : ''}</div>
+      <div class="song-title">${escHtml(s.song || '')}${s.artist ? `<span class="song-artist"> — ${escHtml(s.artist)}</span>` : ''}</div>
+      <div class="song-meta">${[s.classInfo, s.name].filter(Boolean).map(escHtml).join(' ')} 신청</div>
     </div>
+    <button class="yt-badge${linked ? ' linked' : ''}" onclick="openYtPicker('${s.id}')"
+            title="${linked ? '연결된 영상 변경' : '유튜브 영상 연결'}">
+      ${linked ? '▶ 연결됨' : '🔍 찾기'}
+    </button>
     <button class="btn sm ${s.isDone ? 'ghost' : 'primary'}" onclick="toggleSong('${s.id}',${s.isDone})" title="${s.isDone ? '대기로 되돌리기' : '완료 처리'}">
       ${s.isDone ? '↩' : '✓'}
     </button>
@@ -1351,6 +1408,93 @@ async function addSong() {
     showToast('신청곡 추가됨', 'success');
   } catch(e) {
     showToast('추가 실패: ' + FBGuard.message(e), 'error');
+  }
+}
+
+/* ── YouTube 링크 연결 ─────────────────────────────────── */
+let ytTargetId = null;
+
+function ytSetResults(html) { document.getElementById('yt-results').innerHTML = html; }
+
+async function openYtPicker(id) {
+  const song = songsAll.find(s => s.id === id);
+  if (!song) return;
+  ytTargetId = id;
+
+  const q = YTLink.query(song.song, song.artist);
+  document.getElementById('yt-subject').innerHTML =
+    `<b>${escHtml(song.song || '')}</b>${song.artist ? ' — ' + escHtml(song.artist) : ''}` +
+    (song.videoId
+      ? ` · <a href="${YTLink.watchUrl(song.videoId)}" target="_blank" rel="noopener">현재 연결된 영상</a>` +
+        ` · <a href="#" onclick="ytClearLink();return false;">연결 해제</a>`
+      : '');
+  document.getElementById('yt-manual-url').value = '';
+  document.getElementById('yt-modal').classList.add('open');
+
+  if (!YTLink.hasKey()) {
+    // 키가 없을 때: 유튜브 검색 탭을 열고 주소를 받아 온다
+    document.getElementById('yt-fallback-hint').innerHTML =
+      '① 아래 버튼으로 유튜브 검색을 연 뒤 ② 영상 주소를 복사하고 ③ 📋 를 누르세요.';
+    ytSetResults(
+      `<button class="btn ghost sm" onclick="window.open('${YTLink.searchUrl(q)}','_blank','noopener')">` +
+      `🔍 유튜브에서 “${escHtml(q)}” 검색 열기</button>`);
+    return;
+  }
+
+  document.getElementById('yt-fallback-hint').innerHTML =
+    '원하는 영상이 없으면 주소를 직접 붙여넣어도 됩니다.';
+  ytSetResults('<span class="yt-hint">검색 중…</span>');
+  try {
+    const results = await YTLink.search(q, 5);
+    if (!results.length) { ytSetResults('<span class="yt-hint">검색 결과가 없습니다.</span>'); return; }
+    ytSetResults(results.map(r =>
+      `<button class="yt-result" onclick="ytPick('${r.videoId}')">
+         <img src="${r.thumb}" alt="" loading="lazy">
+         <span>
+           <span class="yt-result-title">${escHtml(r.title)}</span>
+           <span class="yt-result-ch">${escHtml(r.channel)}</span>
+         </span>
+       </button>`).join(''));
+  } catch (e) {
+    ytSetResults(
+      `<span class="yt-hint" style="color:var(--danger)">${escHtml(e.message)}</span><br>` +
+      `<button class="btn ghost sm" style="margin-top:8px" onclick="window.open('${YTLink.searchUrl(q)}','_blank','noopener')">` +
+      `🔍 유튜브에서 직접 검색</button>`);
+  }
+}
+
+function closeYtPicker() {
+  document.getElementById('yt-modal').classList.remove('open');
+  ytTargetId = null;
+}
+
+async function ytSaveVideoId(videoId) {
+  if (!ytTargetId) return;
+  try {
+    await db.collection('songs').doc(ytTargetId).update({ videoId });
+    showToast(videoId ? '영상이 연결되었습니다' : '연결을 해제했습니다', 'success');
+    closeYtPicker();
+  } catch (e) {
+    showToast('저장 실패: ' + FBGuard.message(e), 'error');
+  }
+}
+
+function ytPick(videoId) { ytSaveVideoId(videoId); }
+function ytClearLink() { ytSaveVideoId(''); }
+
+function ytSaveManual() {
+  const raw = document.getElementById('yt-manual-url').value;
+  const id = YTLink.parseVideoId(raw);
+  if (!id) { showToast('유튜브 주소를 인식하지 못했습니다', 'warn'); return; }
+  ytSaveVideoId(id);
+}
+
+async function ytPasteFromClipboard() {
+  try {
+    ytSaveVideoId(await YTLink.readClipboardVideoId());
+  } catch (e) {
+    showToast(e.message, 'warn');
+    document.getElementById('yt-manual-url').focus();
   }
 }
 
@@ -1522,6 +1666,9 @@ function escHtml(str) {
 document.getElementById('picker-modal').addEventListener('click', e => {
   if (e.target === e.currentTarget) closePicker();
 });
+document.getElementById('yt-modal').addEventListener('click', e => {
+  if (e.target === e.currentTarget) closeYtPicker();
+});
 document.getElementById('confirm-modal').addEventListener('click', e => {
   if (e.target === e.currentTarget) confirmResolve(false);
 });
@@ -1529,6 +1676,7 @@ document.getElementById('confirm-modal').addEventListener('click', e => {
 document.addEventListener('keydown', e => {
   if (e.key === 'Escape') {
     if (document.getElementById('picker-modal').classList.contains('open')) closePicker();
+    if (document.getElementById('yt-modal').classList.contains('open')) closeYtPicker();
     if (document.getElementById('confirm-modal').classList.contains('open')) confirmResolve(false);
   }
 });

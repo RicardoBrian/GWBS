@@ -11,6 +11,7 @@
 <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore-compat.js"></script>
 <script src="fb-guard.js"></script>
+<script src="yt.js"></script>
 <style>
 /* ─── CSS custom properties ─────────────────────────────────── */
 :root {
@@ -763,6 +764,11 @@ body.dark #te-inner { background: rgba(22,24,40,0.97) !important; }
   overflow: hidden;
   text-overflow: ellipsis;
 }
+.song-artist-text {
+  font-weight: 400;
+  color: var(--text-3);
+}
+.song-artist-text::before { content: ' — '; }
 .song-item.is-done .song-title-text {
   text-decoration: line-through;
   color: var(--text-3);
@@ -1876,12 +1882,24 @@ function renderSongList(container, items, isDone) {
     const title = document.createElement('div');
     title.className = 'song-title-text';
     title.textContent = item.song || '(제목 없음)';
+    if (item.artist) {
+      const artist = document.createElement('span');
+      artist.className = 'song-artist-text';
+      artist.textContent = item.artist;
+      title.appendChild(artist);
+    }
 
     const meta = document.createElement('div');
     meta.className = 'song-meta-text';
-    const parts = [item.classInfo, item.name].filter(Boolean);
-    if (item.artist) parts.push(item.artist);
-    meta.textContent = parts.join(' · ');
+    const who = [item.classInfo, item.name].filter(Boolean).join(' ');
+    meta.textContent = who ? who + ' 신청' : '';
+    if (item.videoId) {
+      const mark = document.createElement('span');
+      mark.textContent = ' ▶';
+      mark.title = '재생목록에 포함됩니다';
+      mark.style.cssText = 'color:var(--accent);font-size:11px;';
+      meta.appendChild(mark);
+    }
 
     // Playlist checkbox
     const chk = document.createElement('input');
@@ -1889,6 +1907,7 @@ function renderSongList(container, items, isDone) {
     chk.className = 'song-select-chk';
     chk.dataset.song = item.song || '';
     chk.dataset.artist = item.artist || '';
+    chk.dataset.videoId = item.videoId || '';
     chk.setAttribute('aria-label', `${item.song} 선택`);
     chk.style.cssText = 'width:16px;height:16px;cursor:pointer;accent-color:var(--accent);flex-shrink:0;margin-right:2px;';
 
@@ -2080,12 +2099,31 @@ function showModal(title, desc, onConfirm, requiredPw) {
 
 /* ─── YouTube playlist ────────────────────────────────────────── */
 function openYouTubePlaylist() {
-  const checks = document.querySelectorAll('.song-select-chk:checked');
+  const checks = [...document.querySelectorAll('.song-select-chk:checked')];
   if (!checks.length) { showToast('재생할 곡을 선택하세요.', 'warn'); return; }
+
+  const ids = [];
+  const missing = [];
   checks.forEach(chk => {
-    const q = encodeURIComponent([chk.dataset.song, chk.dataset.artist].filter(Boolean).join(' '));
-    window.open('https://music.youtube.com/search?q=' + q, '_blank', 'noopener');
+    if (chk.dataset.videoId) ids.push(chk.dataset.videoId);
+    else missing.push(chk.dataset.song || '(제목 없음)');
   });
+
+  if (!ids.length) {
+    showToast('선택한 곡에 연결된 영상이 없습니다. 관리자 페이지에서 유튜브 링크를 먼저 연결해 주세요.', 'warn');
+    return;
+  }
+
+  // 브라우저는 클릭 한 번에 팝업 하나만 허용하므로 탭 하나에 전부 담는다.
+  window.open(YTLink.playlistUrl(ids), '_blank', 'noopener');
+
+  if (missing.length) {
+    showToast(`${ids.length}곡으로 재생목록을 만들었습니다. 링크가 없는 ${missing.length}곡은 제외됐습니다: ${missing.join(', ')}`, 'warn');
+  } else if (ids.length > 50) {
+    showToast('재생목록은 최대 50곡까지만 담깁니다.', 'warn');
+  } else {
+    showToast(`${ids.length}곡으로 재생목록을 만들었습니다.`, 'success');
+  }
 }
 
 /* ─── Boot ────────────────────────────────────────────────────── */
