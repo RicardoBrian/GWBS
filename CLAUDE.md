@@ -11,7 +11,7 @@
 
 ## DB — Firebase `gwansan-work` (업무용 통합 프로젝트, 2026-11-09 전환)
 - 방송부 데이터: `apps/broadcast/` 아래(`fb-guard.js` 의 `BC`) — `broadcasts`, `attendance`, `manuals`, `songs`, `settings`, 부원 `members/{명렬표 학생ID}`(`grade`, `name`, `studentId`).
-- 방송 일정(`tasks[].p1·p2·p3`)과 방송부 출결은 학생을 **이름 글자**로 적는다(아직 학생 ID 아님).
+- 방송 일정(`tasks[].p1·p2·p3`)과 방송부 출결은 화면·검색용으로 **이름 글자**를 그대로 두고, 부원과 맞는 이름에는 학생 ID 를 함께 저장한다: `tasks[].p1Ids·p2Ids·p3Ids`, `attendance.studentId·grade`(`fb-guard.js` 의 `BCIds`). 부원이 아닌 이름(선생님 등)이나 같은 학년 동명이인은 ID 없이 둔다. 관리 화면에서 부원을 추가하면 공용 명렬표에서 같은 학년·이름을 찾아 학생 ID 를 문서 ID 로 쓴다.
 - 읽기·쓰기: 방송부원(입장 비밀번호 → Cloudflare 가 주는 커스텀 토큰 `staff: true`)과 관리자(공용 `admins/{이메일}` 구글 계정)만. 신청 페이지는 신청곡 만들기만(공개).
 - 규칙: 세 앱 공용 파일 하나 — 원본은 GWVS 레포 `firestore.rules`(사용자 컴퓨터 `~/code/workapps-merge/`, 시험 `rules-test/broadcast.rules.test.mjs`). 이 레포의 `firestore.rules`·`.firebaserc` 는 예전 프로젝트(gwbs-3ec22)용으로 남아 있다.
 - 예전 프로젝트 `gwbs-3ec22` 는 백업으로 남겨 두었다(지우지 않음).
