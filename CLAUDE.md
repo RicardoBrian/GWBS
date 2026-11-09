@@ -9,13 +9,17 @@
 - `index.html` 방송부 화면, `admin.html` 관리자(구글 로그인), `request.html` **학생 신청곡 페이지(공개)**, `migrate.html` 옛 구글 시트 → Firestore 이전용(1회성), `yt.js` 유튜브, `fb-guard.js` Firebase 설정·초기화.
 - `functions/_middleware.js` 입장 게이트: `SITE_PASSWORD` 를 아는 사람만 들어온다(`/request*`, `fb-guard.js`, 로고는 공개). `/api/token` 은 `functions/_lib.js` 로 Firebase 토큰을 만든다.
 
-## DB — Firebase `gwbs-3ec22`
-- 컬렉션: `students`, `broadcasts`, `songs`, `attendance`, `manuals`, `settings`.
-- 규칙 `firestore.rules`, 색인 `firestore.indexes.json`. **자동 배포 안 됨** — 콘솔에 붙여넣어 게시하거나 `firebase deploy --only firestore:rules --project gwbs-3ec22`. 고쳤으면 사용자에게 알린다.
+## DB — Firebase `gwansan-work` (업무용 통합 프로젝트, 2026-11-09 전환)
+- 방송부 데이터: `apps/broadcast/` 아래(`fb-guard.js` 의 `BC`) — `broadcasts`, `attendance`, `manuals`, `songs`, `settings`, 부원 `members/{명렬표 학생ID}`(`grade`, `name`, `studentId`).
+- 방송 일정(`tasks[].p1·p2·p3`)과 방송부 출결은 학생을 **이름 글자**로 적는다(아직 학생 ID 아님).
+- 읽기·쓰기: 방송부원(입장 비밀번호 → Cloudflare 가 주는 커스텀 토큰 `staff: true`)과 관리자(공용 `admins/{이메일}` 구글 계정)만. 신청 페이지는 신청곡 만들기만(공개).
+- 규칙: 세 앱 공용 파일 하나 — 원본은 GWVS 레포 `firestore.rules`(사용자 컴퓨터 `~/code/workapps-merge/`, 시험 `rules-test/broadcast.rules.test.mjs`). 이 레포의 `firestore.rules`·`.firebaserc` 는 예전 프로젝트(gwbs-3ec22)용으로 남아 있다.
+- 예전 프로젝트 `gwbs-3ec22` 는 백업으로 남겨 두었다(지우지 않음).
 
 ## 배포
 - Cloudflare Pages, Build command 비움, output `/`. 주소 `gwbs.kakainfo.com`.
-- Cloudflare 비밀값: `SITE_PASSWORD`(없으면 게이트 꺼짐), `FIREBASE_SERVICE_ACCOUNT`. 넣거나 바꾼 뒤엔 재배포해야 적용된다.
+- Cloudflare 비밀값: `SITE_PASSWORD`(없으면 게이트 꺼짐), `FIREBASE_SERVICE_ACCOUNT`(**gwansan-work** 서비스 계정 키). 넣거나 바꾼 뒤엔 재배포해야 적용된다. Production 과 Preview 는 값 목록이 따로다 — 미리보기 주소에서 시험하려면 Preview 에도 둘 다 넣는다.
+- 실제 배포 브랜치는 `claude/korean-broadcast-schedule-81tmb4`(main 없음).
 - 헤더는 `_headers`. `vercel.json` 은 Vercel 을 안 쓰므로 남은 파일이다(지우려면 먼저 묻는다).
 
 ## 테스트
