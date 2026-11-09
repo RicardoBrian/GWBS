@@ -1,0 +1,30 @@
+# GWBS 작업 지침 (관산중 방송부)
+
+방송부 운영 앱: 방송 일정, 신청곡, 출석, 매뉴얼, 학생 관리. 설치는 `SETUP.md`, 배포는 `DEPLOY.md`.
+
+- **업무용 앱**이다(출결·방송부·봉사). 수업용 Ohweb 과는 분리한다. 방학 때 gwansanattend·GWBS·GWVS 를 DB 하나·레포 하나로 합칠 예정이며, **지금은 합치지 않는다**(다른 레포 코드·DB를 끌어오지 않는다).
+
+## 구조
+- 빌드 없음. 레포 맨 위가 그대로 배포된다.
+- `index.html` 방송부 화면, `admin.html` 관리자(구글 로그인), `request.html` **학생 신청곡 페이지(공개)**, `migrate.html` 옛 구글 시트 → Firestore 이전용(1회성), `yt.js` 유튜브, `fb-guard.js` Firebase 설정·초기화.
+- `functions/_middleware.js` 입장 게이트: `SITE_PASSWORD` 를 아는 사람만 들어온다(`/request*`, `fb-guard.js`, 로고는 공개). `/api/token` 은 `functions/_lib.js` 로 Firebase 토큰을 만든다.
+
+## DB — Firebase `gwbs-3ec22`
+- 컬렉션: `students`, `broadcasts`, `songs`, `attendance`, `manuals`, `settings`.
+- 규칙 `firestore.rules`, 색인 `firestore.indexes.json`. **자동 배포 안 됨** — 콘솔에 붙여넣어 게시하거나 `firebase deploy --only firestore:rules --project gwbs-3ec22`. 고쳤으면 사용자에게 알린다.
+
+## 배포
+- Cloudflare Pages, Build command 비움, output `/`. 주소 `gwbs.kakainfo.com`.
+- Cloudflare 비밀값: `SITE_PASSWORD`(없으면 게이트 꺼짐), `FIREBASE_SERVICE_ACCOUNT`. 넣거나 바꾼 뒤엔 재배포해야 적용된다.
+- 헤더는 `_headers`. `vercel.json` 은 Vercel 을 안 쓰므로 남은 파일이다(지우려면 먼저 묻는다).
+
+## 테스트
+- 자동 테스트 없음. 고친 뒤 `*.pages.dev` 미리보기 또는 실제 주소에서 직접 눌러 확인하고, 확인한 화면을 사용자에게 말한다.
+
+## 작업 원칙
+- 고치기 전에 **실제 오류 메시지를 먼저 확보**한다. 메시지 없이 추측으로 고치지 않는다.
+  사용자에게 확인을 부탁할 때는 열어볼 주소·볼 곳을 하나로 정확히 준다.
+- 잘 되던 기능은 요청 없이 건드리지 않는다. 원인이 확인되면 그 원인만 고치고, "겸사겸사" 개선은 먼저 묻는다.
+- 같은 문제로 두 번 고쳐도 안 되면 멈추고, 확인한 사실과 모르는 것을 정리해 보고한다.
+- 사용자에게는 한국어로, 짧게, 무엇을 바꿨고 무엇을 확인했는지(확인 못 한 것도) 말한다.
+- 전체 DB 지도는 `RicardoBrian/Ohweb` 의 `DB.md`. 컬렉션을 새로 만들면 그 표도 고친다.
