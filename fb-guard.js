@@ -5,14 +5,18 @@
      수정하면 됩니다.
    ───────────────────────────────────────────────────────────── */
 
+// 업무용 통합 프로젝트 gwansan-work (출결·방송부·봉사). 예전 프로젝트 gwbs-3ec22 는 백업으로 남겨 둔다.
+// 방송부 데이터는 apps/broadcast/ 아래(BC 경로). 부원은 members(공용 명렬표 학생 ID 를 studentId 로 가진다).
+// Cloudflare 비밀값 FIREBASE_SERVICE_ACCOUNT 도 gwansan-work 의 키여야 한다(입장 토큰 서명).
 window.FB_CONFIG = {
-  apiKey: "AIzaSyBni9HsSfoY_e9oQkW5HDAwypaEXMXQAOo",
-  authDomain: "gwbs-3ec22.firebaseapp.com",
-  projectId: "gwbs-3ec22",
-  storageBucket: "gwbs-3ec22.firebasestorage.app",
-  messagingSenderId: "589081885767",
-  appId: "1:589081885767:web:c44ad52ac51f5773ec0562"
+  apiKey: "AIzaSyAP8AhRYa38nVzgU2C1xvA7OLKaSJo4daw",
+  authDomain: "gwansan-work.firebaseapp.com",
+  projectId: "gwansan-work",
+  storageBucket: "gwansan-work.firebasestorage.app",
+  messagingSenderId: "286002258248",
+  appId: "1:286002258248:web:d8a38e824414f24becd37d"
 };
+window.BC = 'apps/broadcast/';
 
 (function () {
   'use strict';
