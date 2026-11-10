@@ -10,6 +10,7 @@
   <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-auth-compat.js"></script>
   <script src="fb-guard.js"></script>
+  <script src="privacy-notice.js"></script>
   <script src="yt.js"></script>
   <style>
     /* ── Design tokens ───────────────────────────────────── */
@@ -1037,6 +1038,12 @@ async function checkAuth() {
     if (user && user.email === ADMIN_EMAIL) {
       document.getElementById('pw-modal').classList.remove('open');
       initApp();
+      // 교사 개인정보 처리 안내(공용 privacyAcks) — 이 판을 확인한 적 없으면 한 번 띄운다
+      window.PrivacyNotice && PrivacyNotice.check({
+        email: user.email, app: 'broadcast',
+        read: e => db.collection('privacyAcks').doc(e).get().then(s => s.exists ? s.data() : null),
+        write: (e, d) => db.collection('privacyAcks').doc(e).set({ ...d, at: firebase.firestore.FieldValue.serverTimestamp() }),
+      });
     } else {
       document.getElementById('pw-modal').classList.add('open');
     }
